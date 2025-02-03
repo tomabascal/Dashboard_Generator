@@ -16,6 +16,16 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
+
+smtp_server = "smtp.gmail.com"
+port = 587
+sender_email = st.secrets["email"]
+sender_password = st.secrets["password"]
+
+server = smtplib.SMTP(smtp_server, port)
+server.starttls()  # Activa el cifrado TLS
+server.login(sender_email, sender_password)
+
 def send_email(receiver_email, zip_file_path, subject, body, sender_email, sender_password):
     """Envía un correo con el ZIP adjunto."""
     msg = EmailMessage()
