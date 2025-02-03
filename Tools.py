@@ -87,8 +87,9 @@ def update_text_of_textbox(presentation, column_letter, new_text):
 
 
 
-def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email=None, sender_password=None):
-    """Genera reportes en formato PPTX o PDF y opcionalmente los envía por correo."""
+
+def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email, sender_password):
+    """Genera reportes en formato PPTX o PDF y los envía por correo."""
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
@@ -132,6 +133,11 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     email_sent_count = 0
 
     for index, row in df_selected.iterrows():
+        email = row["Email"] if "Email" in df_selected.columns else None
+        if not email:
+            st.warning(f"No email found for row {index}, skipping...")
+            continue
+
         process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
@@ -142,28 +148,14 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
-    # 🔹 Solo enviar emails si el usuario seleccionó la opción
-    if sender_email and sender_password:
-        if os.path.exists(zip_path):
-            for index, row in df_selected.iterrows():
-                email = row["Email"] if "Email" in df_selected.columns else None
-                if email:
-                    send_email(email, zip_path, "Your Report is Ready", "Please find your report attached.", sender_email, sender_password)
-                    email_sent_count += 1
+    if os.path.exists(zip_path):
+        for index, row in df_selected.iterrows():
+            email = row["Email"] if "Email" in df_selected.columns else None
+            if email:
+                send_email(email, zip_path, "Your Report is Ready", "Please find your report attached.", sender_email, sender_password)
+                email_sent_count += 1
 
-        progress_text.write(f"✅ {email_sent_count}/{total_files} emails sent successfully!")
-    else:
-        # 🔹 Si no se envían correos, mostrar el botón de descarga
-        with open(zip_path, "rb") as zip_file:
-            st.download_button(
-                label=f"📥 Download {total_files} reports ({output_format})",
-                data=zip_file,
-                file_name=f"{folder_name}.zip",
-                mime="application/zip"
-            )
-
-        progress_text.write(f"✅ All reports have been generated in {output_format} format!")
-
+    progress_text.write(f"✅ {email_sent_count}/{total_files} emails sent successfully!")
 
 
 
@@ -289,10 +281,7 @@ sender_password = st.text_input("🔑 Your Email Password", type="password")
 send_email_option = st.checkbox("📩 Send reports via email")
 
 if st.button("Process & Send Emails" if send_email_option else "Process"):
-    if ppt_template and data_file:
-        email = sender_email if send_email_option else None
-        password = sender_password if send_email_option else None
-        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format, email, password)
+    if ppt_template and data_file and (not send_email_option or (sender_email and sender_password)):
+        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email, sender_password)
     else:
-        st.error("Please upload both files before processing.")
-
+        st.error("Please upload files and enter email credentials before processing.")
