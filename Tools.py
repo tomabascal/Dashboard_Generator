@@ -12,35 +12,6 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
-import smtplib
-import ssl
-from email.message import EmailMessage
-
-def send_email(receiver_email, zip_file_path, subject, body, sender_email, sender_password):
-    """Envía un correo con el ZIP adjunto."""
-    msg = EmailMessage()
-    msg["From"] = sender_email
-    msg["To"] = receiver_email
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    # Adjuntar el archivo ZIP
-    with open(zip_file_path, "rb") as attachment:
-        msg.add_attachment(
-            attachment.read(),
-            maintype="application",
-            subtype="zip",
-            filename=os.path.basename(zip_file_path),
-        )
-
-    # Configurar conexión SMTP
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-
-    print(f"✅ Email sent to {receiver_email}")
-
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
@@ -88,9 +59,9 @@ def update_text_of_textbox(presentation, column_letter, new_text):
 
 
 
-def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email, sender_password):
-    """Genera reportes en formato PPTX o PDF y los envía por correo."""
-
+def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
+    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
@@ -123,39 +94,40 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No files to generate. Check filters.")
+        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
         return
+
+    # 🔹 Aviso de tiempo estimado según el formato elegido
+    estimated_time = total_files * (5 if output_format == "PDF" else 1)
+    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
 
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
     current_file = 0
-    email_sent_count = 0
+    start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        email = row["Email"] if "Email" in df_selected.columns else None
-        if not email:
-            st.warning(f"No email found for row {index}, skipping...")
-            continue
-
         process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format})")
+        elapsed_time = time.time() - start_time
+        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
-    # Crear el ZIP después de generar todos los archivos
+    # Crear un ZIP con los archivos en el formato seleccionado
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
-    if os.path.exists(zip_path):
-        for index, row in df_selected.iterrows():
-            email = row["Email"] if "Email" in df_selected.columns else None
-            if email:
-                send_email(email, zip_path, "Your Report is Ready", "Please find your report attached.", sender_email, sender_password)
-                email_sent_count += 1
+    with open(zip_path, "rb") as zip_file:
+        st.download_button(
+            label=f"📥 Download {total_files} reports ({output_format})",
+            data=zip_file,
+            file_name=f"{folder_name}.zip",
+            mime="application/zip"
+        )
 
-    progress_text.write(f"✅ {email_sent_count}/{total_files} emails sent successfully!")
+    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
 
@@ -275,13 +247,9 @@ if data_file is not None:
 
 
 # ========= 🚀 Botón de procesamiento =========
-st.markdown("### **Email Configuration**")
-sender_email = st.text_input("📧 Your Email (Gmail or Outlook)")
-sender_password = st.text_input("🔑 Your Email Password", type="password")
-send_email_option = st.checkbox("📩 Send reports via email")
-
-if st.button("Process & Send Emails" if send_email_option else "Process"):
-    if ppt_template and data_file and (not send_email_option or (sender_email and sender_password)):
-        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email, sender_password)
+if st.button("Process"):
+    if ppt_template and data_file:
+        process_files(ppt_template, data_file, st.session_state.search_option,
+                      start_row, end_row, store_ids, selected_columns, output_format) 
     else:
-        st.error("Please upload files and enter email credentials before processing.")
+        st.error("Please upload both files before processing.")
