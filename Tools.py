@@ -15,6 +15,7 @@ import subprocess
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 
+
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -35,19 +36,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     try:
         wb = openpyxl.load_workbook(excel_file_path, data_only=True)
         ws = wb.active
-
-        # Lee los valores formateados de las celdas
-        data = []
-        for row in ws.iter_rows(min_row=start_row, max_row=end_row):
-            formatted_row = []
-            for cell in row:
-                if cell.number_format == 'General':
-                    formatted_row.append(cell.value)
-                else:
-                    formatted_row.append(cell.value if cell.value is None else cell.number_format.format(cell.value))
-            data.append(formatted_row)
-
-        columns = [cell.value for cell in ws[1]]
+        data = ws.values
+        columns = next(data)[0:]
         df1 = pd.DataFrame(data, columns=columns)
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
@@ -82,7 +72,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         progress = current_file / total_files
         progress_bar.progress(progress)
         elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        progress_text.write(f"📄 Generating {
+                            current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
@@ -95,7 +86,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ All reports have been generated in {
+                        output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
@@ -127,14 +119,19 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-def update_text_of_textbox(presentation, column_letter, text):
-    pattern = r"\b{}\b".format(re.escape(column_letter))  # Asegúrate de que el patrón esté correctamente escapado
+def update_text_of_textbox(presentation, column_letter, new_text):
+    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
+    pattern = rf"\{{{column_letter}\}}"
+
     for slide in presentation.slides:
         for shape in slide.shapes:
-            if shape.has_text_frame:
+            if shape.has_text_frame and shape.text:
                 if re.search(pattern, shape.text):
-                    shape.text = str(text)  # Asegúrate de que el texto sea una cadena
-                    return
+                    text_frame = shape.text_frame
+                    for paragraph in text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            run.text = re.sub(pattern, str(new_text), run.text)
+
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
@@ -144,14 +141,15 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         column_letter = chr(65 + col_idx)
         update_text_of_textbox(presentation, column_letter, row[col_name])
 
-    # Guarda la presentación modificada
-    output_path = os.path.join(output_folder, f"presentation_{index}.{output_format.lower()}")
-    presentation.save(output_path)
+    file_name = get_filename_from_selection(row, selected_columns)
+    pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
 
-    # Si el formato de salida es PDF, convierte el archivo PPTX a PDF
-    if output_format.lower() == "pdf":
-        convert_pptx_to_pdf(output_path)
+    presentation.save(pptx_path)
 
+    if output_format == "PDF":
+        pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
+        convert_pptx_to_pdf(pptx_path, pdf_path)
+        os.remove(pptx_path)
 
 
 # ========= 💡 Estilos para mejorar el diseño =========
