@@ -58,15 +58,43 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                             run.text = re.sub(pattern, str(new_text), run.text)
 
 
-def process_files(ppt_template, data_file, search_option, start_row, end_row, store_ids, selected_columns, output_folder, output_format):
-    """Procesa los archivos y genera las presentaciones."""
-    df1 = pd.read_excel(data_file, engine='openpyxl')
-    wb = openpyxl.load_workbook(data_file)
-    sheet_name = wb.sheetnames[0]  # Ajusta según el nombre de tu hoja
+def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
+    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_name = f"Presentations_{timestamp}"
+    os.makedirs(folder_name, exist_ok=True)
 
-    # Ajusta según tu lógica de selección
-    df_selected = df1[df1['search_column'] == search_option]
+    temp_folder = "temp_files"
+    os.makedirs(temp_folder, exist_ok=True)
+
+    ppt_template_path = os.path.join(temp_folder, ppt_file.name)
+    excel_file_path = os.path.join(temp_folder, excel_file.name)
+
+    with open(ppt_template_path, "wb") as f:
+        f.write(ppt_file.getbuffer())
+    with open(excel_file_path, "wb") as f:
+        f.write(excel_file.getbuffer())
+
+    try:
+        with pd.ExcelFile(excel_file_path) as xls:
+            df1 = pd.read_excel(xls, sheet_name=0)
+    except PermissionError as e:
+        st.error(f"Error reading Excel file: {e}")
+        return
+
+    if search_option == 'rows':
+        # Ajustar índices restando 1
+        df_selected = df1.iloc[start_row-2:end_row]
+    elif search_option == 'store_id':
+        store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
+        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
+    else:
+        df_selected = pd.DataFrame()
+
     total_files = len(df_selected)
+    if total_files == 0:
+        st.error("⚠️ No data in such rows. Verify filters.")
+        return
 
     estimated_time = total_files * (5 if output_format == "PDF" else 1)
     st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
@@ -78,8 +106,8 @@ def process_files(ppt_template, data_file, search_option, start_row, end_row, st
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(row, df1, index, selected_columns,
-                    output_folder, output_format, wb, sheet_name)
+        process_row(ppt_template_path, row, df1, index,
+                    selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
@@ -87,21 +115,28 @@ def process_files(ppt_template, data_file, search_option, start_row, end_row, st
         progress_text.write(f"📄 Generating {
                             current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
-    zip_path = f"{output_folder}.zip"
-    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', output_folder)
-    return zip_path
+    zip_path = f"{folder_name}.zip"
+    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
+
+    with open(zip_path, "rb") as zip_file:
+        st.download_button(
+            label=f"📥 Download {total_files} reports ({output_format})",
+            data=zip_file,
+            file_name=f"{folder_name}.zip",
+            mime="application/zip"
+        )
+
+    progress_text.write(f"✅ All reports have been generated in {
+                        output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
-    sheet = wb[sheet_name]
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        # Ajusta según el índice de fila y columna
-        cell = sheet.cell(row=index + 2, column=col_idx + 1)
-        formatted_text = format_cell_value(cell, df1.iloc[index, col_idx])
+        formatted_text = format_cell_value(df1.iloc[index, col_idx])
         update_text_of_textbox(presentation, column_letter, formatted_text)
 
     file_name = get_filename_from_selection(row, selected_columns)
@@ -115,18 +150,19 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         os.remove(pptx_path)
 
 
-def format_cell_value(cell, cell_value):
-    """Formatea el valor de la celda según su tipo y formato."""
+def format_cell_value(cell_value):
+    """Formatea el valor de la celda según su tipo."""
     if pd.isna(cell_value):
         return ""
     if isinstance(cell_value, (int, float)):
-        if cell.number_format in ['0%', '0.00%']:
+        if 0 <= cell_value <= 1:
             return f"{cell_value * 100:.1f}%"
-        if cell.number_format in ['Currency', 'Accounting']:
-            return f"{cell_value:,.2f}€"
         return f"{cell_value:,.1f}"
     if isinstance(cell_value, pd.Timestamp):
         return cell_value.strftime("%d-%m-%Y")
+    if isinstance(cell_value, str):
+        if cell_value.endswith('%') or cell_value.endswith('€'):
+            return cell_value
     return str(cell_value)
 
 
@@ -221,10 +257,7 @@ if data_file is not None:
 # ========= 🚀 Botón de procesamiento =========
 if st.button("Process"):
     if ppt_template and data_file:
-        try:
-            process_files(ppt_template, data_file, st.session_state.search_option,
-                          start_row, end_row, store_ids, selected_columns, output_format, output_format)
-        except TypeError as e:
-            st.error(f"TypeError: {e}")
+        process_files(ppt_template, data_file, st.session_state.search_option,
+                      start_row, end_row, store_ids, selected_columns, output_format)
     else:
         st.error("Please upload both files before processing.")
