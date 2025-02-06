@@ -44,8 +44,8 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-def update_text_of_textbox(presentation, column_letter, new_text, cell_format):
-    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc., manteniendo el formato del Excel."""
+def update_text_of_textbox(presentation, column_letter, new_text):
+    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc., manteniendo el formato del PPTX."""
     pattern = rf"\{{{column_letter}\}}"
 
     for slide in presentation.slides:
@@ -56,11 +56,6 @@ def update_text_of_textbox(presentation, column_letter, new_text, cell_format):
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
-                            run.font.size = Pt(cell_format['font_size'])
-                            run.font.bold = cell_format['bold']
-                            run.font.italic = cell_format['italic']
-                            run.font.color.rgb = RGBColor(
-                                *cell_format['font_color'])
 
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
@@ -141,8 +136,8 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        cell_format = get_cell_format(df1, index, col_idx)
-        update_text_of_textbox(presentation, column_letter, row[col_name], cell_format)
+        formatted_text = format_cell_value(df1.iloc[index, col_idx])
+        update_text_of_textbox(presentation, column_letter, formatted_text)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -155,16 +150,15 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         os.remove(pptx_path)
 
 
-def get_cell_format(df, row_idx, col_idx):
-    """Obtiene el formato de la celda del DataFrame."""
-    cell = df.iloc[row_idx, col_idx]
-    cell_format = {
-        'font_size': cell.font.size if cell.font else 11,
-        'bold': cell.font.bold if cell.font else False,
-        'italic': cell.font.italic if cell.font else False,
-        'font_color': cell.font.color.rgb if cell.font and cell.font.color else (0, 0, 0)
-    }
-    return cell_format
+def format_cell_value(cell_value):
+    """Formatea el valor de la celda según su tipo."""
+    if pd.isna(cell_value):
+        return ""
+    if isinstance(cell_value, (int, float)):
+        return f"{cell_value:,.2f}"
+    if isinstance(cell_value, pd.Timestamp):
+        return cell_value.strftime("%Y-%m-%d")
+    return str(cell_value)
 
 
 # ========= 💡 Estilos para mejorar el diseño =========
