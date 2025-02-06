@@ -12,53 +12,14 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
-import smtplib
-import ssl
-from email.message import EmailMessage
-
-
-smtp_server = "smtp.gmail.com"
-port = 587
-sender_email = st.secrets["email"]
-sender_password = st.secrets["password"]
-
-server = smtplib.SMTP(smtp_server, port)
-server.starttls()  # Activa el cifrado TLS
-server.login(sender_email, sender_password)
-
-def send_email(receiver_email, zip_file_path, subject, body, sender_email, sender_password):
-    """Envía un correo con el ZIP adjunto."""
-    msg = EmailMessage()
-    msg["From"] = sender_email
-    msg["To"] = receiver_email
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    # Adjuntar el archivo ZIP
-    with open(zip_file_path, "rb") as attachment:
-        msg.add_attachment(
-            attachment.read(),
-            maintype="application",
-            subtype="zip",
-            filename=os.path.basename(zip_file_path),
-        )
-
-    # Configurar conexión SMTP
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-
-    print(f"✅ Email sent to {receiver_email}")
-
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
     try:
-        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf", pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
+        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf",
+                       pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
     except Exception as e:
         print(f"Error converting {pptx_path} to PDF: {e}")
-
 
 def create_zip_of_presentations(folder_path):
     """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
@@ -73,33 +34,26 @@ def create_zip_of_presentations(folder_path):
     zip_buffer.seek(0)
     return zip_buffer
 
-
 def get_filename_from_selection(row, selected_columns):
     """Genera el nombre del archivo según las columnas seleccionadas."""
     file_name_parts = [str(row[col]) for col in selected_columns if col in row]
     return "_".join(file_name_parts)
 
-
 def update_text_of_textbox(presentation, column_letter, new_text):
     """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
-    pattern = rf"\{{{
-        column_letter}\}}"  # Expresión regular para encontrar "{A}", "{B}", etc.
+    pattern = rf"\{{{column_letter}\}}"
 
     for slide in presentation.slides:
         for shape in slide.shapes:
             if shape.has_text_frame and shape.text:
-                if re.search(pattern, shape.text):  # Buscar patrón en el texto
+                if re.search(pattern, shape.text):
                     text_frame = shape.text_frame
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
-                            run.text = re.sub(pattern, str(
-                                new_text), run.text)  # Reemplazo
+                            run.text = re.sub(pattern, str(new_text), run.text)
 
-
-
-def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format, sender_email=None, sender_password=None):
-    """Genera reportes en formato PPTX o PDF y opcionalmente los envía por correo."""
-
+def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
+    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
@@ -132,50 +86,39 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No files to generate. Check filters.")
+        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
         return
+
+    estimated_time = total_files * (5 if output_format == "PDF" else 1)
+    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
 
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
     current_file = 0
-    email_sent_count = 0
+    start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
+        process_row(ppt_template_path, row, df1, index,
+                    selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format})")
+        elapsed_time = time.time() - start_time
+        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
-    # Crear el ZIP después de generar todos los archivos
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
-    # 🔹 Solo enviar emails si el usuario seleccionó la opción
-    if sender_email and sender_password:
-        if os.path.exists(zip_path):
-            for index, row in df_selected.iterrows():
-                email = row["Email"] if "Email" in df_selected.columns else None
-                if email:
-                    send_email(email, zip_path, "Your Report is Ready", "Please find your report attached.", sender_email, sender_password)
-                    email_sent_count += 1
+    with open(zip_path, "rb") as zip_file:
+        st.download_button(
+            label=f"📥 Download {total_files} reports ({output_format})",
+            data=zip_file,
+            file_name=f"{folder_name}.zip",
+            mime="application/zip"
+        )
 
-        progress_text.write(f"✅ {email_sent_count}/{total_files} emails sent successfully!")
-    else:
-        # 🔹 Si no se envían correos, mostrar el botón de descarga
-        with open(zip_path, "rb") as zip_file:
-            st.download_button(
-                label=f"📥 Download {total_files} reports ({output_format})",
-                data=zip_file,
-                file_name=f"{folder_name}.zip",
-                mime="application/zip"
-            )
-
-        progress_text.write(f"✅ All reports have been generated in {output_format} format!")
-
-
-
+    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
@@ -188,120 +131,9 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
 
-    # Guardar como PPTX
     presentation.save(pptx_path)
 
-    # Si el usuario elige PDF, convertir el archivo
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)  # Eliminar el PPTX original para solo guardar el PDF
-
-
-
-# ========= 💡 Estilos para mejorar el diseño =========
-st.markdown("""
-    <style>
-    div.stButton > button {
-        width: 100%;
-        height: 50px;
-        font-size: 16px;
-        border-radius: 10px;
-        font-weight: bold;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ========= Título =========
-st.title("Shopfully Dashboard Generator")
-
-# Opción para elegir el formato de salida
-st.markdown("### **Select Output Format**")
-output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
-
-# Mensaje de advertencia si el usuario elige PDF
-if output_format == "PDF":
-    st.warning("⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
-
-
-
-# ========= 📂 Upload de archivos con formato mejorado =========
-st.markdown(
-    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `{A}`)*", unsafe_allow_html=True)
-ppt_template = st.file_uploader("", type=["pptx"])
-
-st.write("")  # Espaciado
-
-st.markdown(
-    "**Upload Excel File**  \n*(Column A must be `Store ID`)*", unsafe_allow_html=True)
-data_file = st.file_uploader("", type=["xlsx"])
-
-
-# ========= 🔍 Botones mejorados para "Search by" =========
-st.markdown("### **Search by:**")  # Título en negrita y más grande
-col1, col2 = st.columns(2)  # Dos columnas para alinear botones en mosaico
-
-# Inicializar la variable de estado para la selección del filtro
-if "search_option" not in st.session_state:
-    st.session_state.search_option = "rows"  # Valor por defecto
-
-# Botón 1 - Search by Rows
-with col1:
-    if st.button("🔢 Rows", use_container_width=True):
-        st.session_state.search_option = "rows"
-
-# Botón 2 - Search by Store ID
-with col2:
-    if st.button("🔍 Store ID", use_container_width=True):
-        st.session_state.search_option = "store_id"
-
-# Mostrar la opción seleccionada
-st.markdown(f"**Selected: `{st.session_state.search_option}`**")
-
-
-# ========= 🔢 Inputs para definir el rango de búsqueda =========
-start_row, end_row, store_ids = None, None, None
-
-if st.session_state.search_option == "rows":
-    start_row = st.number_input("Start Row", min_value=0, step=1)
-    end_row = st.number_input("End Row", min_value=0, step=1)
-
-elif st.session_state.search_option == "store_id":
-    store_ids = st.text_input("Enter Store IDs (comma-separated)")
-
-
-# ========= 📝 Selección de columnas para el nombre del archivo =========
-if data_file is not None:
-    # Leer la primera hoja del Excel
-    df = pd.read_excel(data_file, sheet_name=0)
-    column_names = df.columns.tolist()
-
-    selected_columns = st.multiselect(
-        "📂 Select and order the columns for the file name:",
-        column_names,
-        default=column_names[:3]
-    )
-
-    def get_filename_from_selection(row, selected_columns):
-        """Genera el nombre del archivo según las columnas seleccionadas."""
-        file_name_parts = [str(row[col])
-                           for col in selected_columns if col in row]
-        return "_".join(file_name_parts)
-
-    st.write("🔹 Example file name:", get_filename_from_selection(
-        df.iloc[0], selected_columns))
-
-
-# ========= 🚀 Botón de procesamiento =========
-st.markdown("### **Email Configuration**")
-sender_email = st.text_input("📧 Your Email (Gmail or Outlook)")
-sender_password = st.text_input("🔑 Your Email Password", type="password")
-send_email_option = st.checkbox("📩 Send reports via email")
-
-if st.button("Process & Send Emails" if send_email_option else "Process"):
-    if ppt_template and data_file:
-        email = sender_email if send_email_option else None
-        password = sender_password if send_email_option else None
-        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format, email, password)
-    else:
-        st.error("Please upload both files before processing.")
+        os.remove(pptx_path)
