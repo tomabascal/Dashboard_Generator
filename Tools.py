@@ -130,13 +130,16 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
                         output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
+    sheet = wb[sheet_name]
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        formatted_text = format_cell_value(df1.iloc[index, col_idx])
+        # Ajusta según el índice de fila y columna
+        cell = sheet.cell(row=index + 2, column=col_idx + 1)
+        formatted_text = format_cell_value(cell, df1.iloc[index, col_idx])
         update_text_of_textbox(presentation, column_letter, formatted_text)
 
     file_name = get_filename_from_selection(row, selected_columns)
@@ -150,19 +153,18 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         os.remove(pptx_path)
 
 
-def format_cell_value(cell_value):
-    """Formatea el valor de la celda según su tipo."""
+def format_cell_value(cell, cell_value):
+    """Formatea el valor de la celda según su tipo y formato."""
     if pd.isna(cell_value):
         return ""
     if isinstance(cell_value, (int, float)):
-        if 0 <= cell_value <= 1:
+        if cell.number_format in ['0%', '0.00%']:
             return f"{cell_value * 100:.1f}%"
+        if cell.number_format in ['Currency', 'Accounting']:
+            return f"{cell_value:,.2f}€"
         return f"{cell_value:,.1f}"
     if isinstance(cell_value, pd.Timestamp):
         return cell_value.strftime("%d-%m-%Y")
-    if isinstance(cell_value, str):
-        if cell_value.endswith('%') or cell_value.endswith('€'):
-            return cell_value
     return str(cell_value)
 
 
