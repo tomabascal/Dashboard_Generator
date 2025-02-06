@@ -174,13 +174,17 @@ def format_cell_value(cell, wb, sheet_name):
         ws = wb[sheet_name]
         cell_format = ws[cell.coordinate].number_format
 
-        # Identificar formato de moneda
-        if "€" in cell_format or "$" in cell_format or "₤" in cell_format:
-            return f"{value:,.2f} {cell_format.strip()}"
-        elif "%" in cell_format:
+        # Limpiar caracteres especiales en los formatos numéricos
+        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  # Elimina todo excepto números, decimales y monedas
+
+        if any(symbol in cleaned_format for symbol in ["€", "$", "£"]):
+            currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
+            return f"{value:,.0f} {currency_symbol}"
+        elif "%" in cleaned_format:
             return f"{value * 100:.1f}%"
         else:
-            return f"{value:,.1f}"
+            return f"{value:,.0f}"
+
 
     elif isinstance(value, datetime):
         return value.strftime("%d-%m-%Y")  # Formato de fecha
