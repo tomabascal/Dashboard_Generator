@@ -157,9 +157,9 @@ def format_cell_value(cell_value):
     if isinstance(cell_value, (int, float)):
         return f"{cell_value:,.2f}"
     if isinstance(cell_value, pd.Timestamp):
-        return cell_value.strftime("%Y-%m-%d")
+        return cell_value.strftime("%d-%m-%Y")
     if isinstance(cell_value, str):
-        if cell_value.endswith('%') or cell_value.endswith('$'):
+        if cell_value.endswith('%') or cell_value.endswith('€'):
             return cell_value
     return str(cell_value)
 
