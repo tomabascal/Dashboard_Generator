@@ -60,12 +60,16 @@ def update_text_of_textbox(presentation, column_letter, new_text):
     for slide in presentation.slides:
         for shape in slide.shapes:
             if shape.has_text_frame and shape.text:
-                if re.search(pattern, shape.text):
-                    text_frame = shape.text_frame
-                    for paragraph in text_frame.paragraphs:
-                        for run in paragraph.runs:
-                            run.text = re.sub(pattern, str(new_text), run.text)
-
+                try:
+                    # Evitar errores con expresiones regulares si el texto contiene caracteres no esperados
+                    if re.search(pattern, shape.text):
+                        text_frame = shape.text_frame
+                        for paragraph in text_frame.paragraphs:
+                            for run in paragraph.runs:
+                                run.text = re.sub(pattern, str(new_text), run.text)
+                except re.error:
+                    # Si ocurre un error en la expresión regular, ignorar este caso
+                    continue
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
