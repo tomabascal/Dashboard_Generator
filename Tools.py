@@ -16,13 +16,24 @@ import openpyxl
 from openpyxl.styles import numbers
 
 def get_formatted_value(cell):
-    """Obtiene el valor formateado de una celda (como porcentaje, fecha, etc.)."""
-    if cell.number_format == numbers.FORMAT_PERCENTAGE:
-        return f"{cell.value * 100:.0f}%"  # Formatea el porcentaje
-    elif cell.is_date:
-        return cell.value.strftime('%d/%m/%Y')  # Formatea la fecha
-    else:
-        return cell.value
+    """Obtiene el valor formateado de la celda (por ejemplo, porcentaje o fecha)."""
+    if cell.value is None:
+        return ""  # Si no hay valor, devolver una cadena vacía
+
+    try:
+        # Si el valor es un número, lo formateamos como porcentaje
+        if isinstance(cell.value, (int, float)):
+            return f"{cell.value * 100:.0f}%"  # Formatea el porcentaje
+        # Si el valor es una fecha, formateamos como 'DD/MM/YYYY'
+        elif isinstance(cell.value, datetime):
+            return cell.value.strftime("%d/%m/%Y")
+        # Si el valor no es un número ni una fecha, devolverlo como está
+        return str(cell.value)
+    except Exception as e:
+        # En caso de cualquier otro error, devolvemos el valor sin formato
+        print(f"Error formatting cell value: {e}")
+        return str(cell.value)
+
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
