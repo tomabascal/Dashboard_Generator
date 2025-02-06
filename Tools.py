@@ -15,7 +15,6 @@ import subprocess
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -34,60 +33,50 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         f.write(excel_file.getbuffer())
 
     try:
+        # Abre el archivo Excel
         wb = openpyxl.load_workbook(excel_file_path, data_only=True)
         ws = wb.active
-        data = ws.values
-        columns = next(data)[0:]
-        df1 = pd.DataFrame(data, columns=columns)
-    except PermissionError as e:
-        st.error(f"Error reading Excel file: {e}")
-        return
 
-    if search_option == 'rows':
-        df_selected = df1.iloc[start_row:end_row + 1]
-    elif search_option == 'store_id':
-        store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
-        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
-    else:
-        df_selected = pd.DataFrame()
+        # Lee los valores formateados de las celdas
+        data = []
+        for row in ws.iter_rows(min_row=start_row, max_row=end_row):
+            formatted_row = []
+            for cell in row:
+                if cell.number_format == 'General':
+                    formatted_row.append(cell.value)
+                else:
+                    formatted_row.append(cell.value if cell.value is None else cell.number_format.format(cell.value))
+            data.append(formatted_row)
 
-    total_files = len(df_selected)
-    if total_files == 0:
-        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
-        return
+        # Procesa los datos y crea el archivo PPTX
+        prs = pptx.Presentation(ppt_template_path)
 
-    estimated_time = total_files * (5 if output_format == "PDF" else 1)
-    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
+        # Aquí deberías agregar el código para insertar los datos en las diapositivas del PPTX
+        # usando los valores formateados en `data`
+        # Ejemplo de cómo agregar una diapositiva y texto
+        slide_layout = prs.slide_layouts[5]  # Usar un layout de diapositiva en blanco
+        slide = prs.slides.add_slide(slide_layout)
+        title = slide.shapes.title
+        title.text = "Datos desde Excel"
 
-    progress_bar = st.progress(0)
-    progress_text = st.empty()
+        for row in data:
+            for value in row:
+                p = slide.shapes.add_textbox(Pt(50), Pt(50), Pt(500), Pt(50)).text_frame.add_paragraph()
+                p.text = str(value)
+                p.font.size = Pt(14)
 
-    current_file = 0
-    start_time = time.time()
+        # Guarda el archivo PPTX modificado
+        output_pptx_path = os.path.join(folder_name, f"output_{timestamp}.pptx")
+        prs.save(output_pptx_path)
 
-    for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index,
-                    selected_columns, folder_name, output_format)
-        current_file += 1
-        progress = current_file / total_files
-        progress_bar.progress(progress)
-        elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {
-                            current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        st.success(f"Presentación generada exitosamente: {output_pptx_path}")
 
-    zip_path = f"{folder_name}.zip"
-    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
+    except Exception as e:
+        st.error(f"Error al procesar los archivos: {e}")
 
-    with open(zip_path, "rb") as zip_file:
-        st.download_button(
-            label=f"📥 Download {total_files} reports ({output_format})",
-            data=zip_file,
-            file_name=f"{folder_name}.zip",
-            mime="application/zip"
-        )
-
-    progress_text.write(f"✅ All reports have been generated in {
-                        output_format} format! Total time: {int(time.time() - start_time)}s")
+    finally:
+        # Limpia los archivos temporales
+        shutil.rmtree(temp_folder)
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
