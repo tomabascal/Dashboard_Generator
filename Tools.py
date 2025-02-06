@@ -127,17 +127,14 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-import re
-
 def update_text_of_textbox(presentation, column_letter, text):
     pattern = r"\b{}\b".format(re.escape(column_letter))  # Asegúrate de que el patrón esté correctamente escapado
     for slide in presentation.slides:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 if re.search(pattern, shape.text):
-                    shape.text = text
+                    shape.text = str(text)  # Asegúrate de que el texto sea una cadena
                     return
-
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
@@ -147,15 +144,14 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         column_letter = chr(65 + col_idx)
         update_text_of_textbox(presentation, column_letter, row[col_name])
 
-    file_name = get_filename_from_selection(row, selected_columns)
-    pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
+    # Guarda la presentación modificada
+    output_path = os.path.join(output_folder, f"presentation_{index}.{output_format.lower()}")
+    presentation.save(output_path)
 
-    presentation.save(pptx_path)
+    # Si el formato de salida es PDF, convierte el archivo PPTX a PDF
+    if output_format.lower() == "pdf":
+        convert_pptx_to_pdf(output_path)
 
-    if output_format == "PDF":
-        pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
-        convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)
 
 
 # ========= 💡 Estilos para mejorar el diseño =========
