@@ -13,6 +13,7 @@ from datetime import datetime
 import re
 import subprocess
 
+
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
     try:
@@ -20,6 +21,7 @@ def convert_pptx_to_pdf(pptx_path, pdf_path):
                        pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
     except Exception as e:
         print(f"Error converting {pptx_path} to PDF: {e}")
+
 
 def create_zip_of_presentations(folder_path):
     """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
@@ -34,13 +36,15 @@ def create_zip_of_presentations(folder_path):
     zip_buffer.seek(0)
     return zip_buffer
 
+
 def get_filename_from_selection(row, selected_columns):
     """Genera el nombre del archivo según las columnas seleccionadas."""
     file_name_parts = [str(row[col]) for col in selected_columns if col in row]
     return "_".join(file_name_parts)
 
-def update_text_of_textbox(presentation, column_letter, new_text):
-    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
+
+def update_text_of_textbox(presentation, column_letter, new_text, cell_format):
+    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc., manteniendo el formato del Excel."""
     pattern = rf"\{{{column_letter}\}}"
 
     for slide in presentation.slides:
@@ -51,6 +55,12 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
+                            run.font.size = Pt(cell_format['font_size'])
+                            run.font.bold = cell_format['bold']
+                            run.font.italic = cell_format['italic']
+                            run.font.color.rgb = RGBColor(
+                                *cell_format['font_color'])
+
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
@@ -77,7 +87,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         return
 
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]  # Ajustar índices restando 1
+        # Ajustar índices restando 1
+        df_selected = df1.iloc[start_row-2:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -105,7 +116,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         progress = current_file / total_files
         progress_bar.progress(progress)
         elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        progress_text.write(f"📄 Generating {
+                            current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
@@ -118,7 +130,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ All reports have been generated in {
+                        output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
@@ -127,7 +140,9 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        update_text_of_textbox(presentation, column_letter, row[col_name])
+        cell_format = get_cell_format(df1, index, col_idx)
+        update_text_of_textbox(presentation, column_letter,
+                               row[col_name], cell_format)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -138,6 +153,19 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)
+
+
+def get_cell_format(df, row_idx, col_idx):
+    """Obtiene el formato de la celda del DataFrame."""
+    cell = df.iloc[row_idx, col_idx]
+    cell_format = {
+        'font_size': cell.font.size,
+        'bold': cell.font.bold,
+        'italic': cell.font.italic,
+        'font_color': cell.font.color.rgb if cell.font.color else (0, 0, 0)
+    }
+    return cell_format
+
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
@@ -161,7 +189,8 @@ output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
 # Mensaje de advertencia si el usuario elige PDF
 if output_format == "PDF":
-    st.warning("⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
+    st.warning(
+        "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
 
 # ========= 📂 Upload de archivos con formato mejorado =========
 st.markdown(
@@ -229,6 +258,7 @@ if data_file is not None:
 # ========= 🚀 Botón de procesamiento =========
 if st.button("Process"):
     if ppt_template and data_file:
-        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format)
+        process_files(ppt_template, data_file, st.session_state.search_option,
+                      start_row, end_row, store_ids, selected_columns, output_format)
     else:
         st.error("Please upload both files before processing.")
