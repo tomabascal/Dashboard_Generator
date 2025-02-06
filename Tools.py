@@ -137,3 +137,97 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)
+
+# ========= 💡 Estilos para mejorar el diseño =========
+st.markdown("""
+    <style>
+    div.stButton > button {
+        width: 100%;
+        height: 50px;
+        font-size: 16px;
+        border-radius: 10px;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ========= Título =========
+st.title("Shopfully Dashboard Generator")
+
+# Opción para elegir el formato de salida
+st.markdown("### **Select Output Format**")
+output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
+
+# Mensaje de advertencia si el usuario elige PDF
+if output_format == "PDF":
+    st.warning("⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
+
+# ========= 📂 Upload de archivos con formato mejorado =========
+st.markdown(
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `{A}`)*", unsafe_allow_html=True)
+ppt_template = st.file_uploader("", type=["pptx"])
+
+st.write("")  # Espaciado
+
+st.markdown(
+    "**Upload Excel File**  \n*(Column A must be `Store ID`)*", unsafe_allow_html=True)
+data_file = st.file_uploader("", type=["xlsx"])
+
+# ========= 🔍 Botones mejorados para "Search by" =========
+st.markdown("### **Search by:**")  # Título en negrita y más grande
+col1, col2 = st.columns(2)  # Dos columnas para alinear botones en mosaico
+
+# Inicializar la variable de estado para la selección del filtro
+if "search_option" not in st.session_state:
+    st.session_state.search_option = "rows"  # Valor por defecto
+
+# Botón 1 - Search by Rows
+with col1:
+    if st.button("🔢 Rows", use_container_width=True):
+        st.session_state.search_option = "rows"
+
+# Botón 2 - Search by Store ID
+with col2:
+    if st.button("🔍 Store ID", use_container_width=True):
+        st.session_state.search_option = "store_id"
+
+# Mostrar la opción seleccionada
+st.markdown(f"**Selected: `{st.session_state.search_option}`**")
+
+# ========= 🔢 Inputs para definir el rango de búsqueda =========
+start_row, end_row, store_ids = None, None, None
+
+if st.session_state.search_option == "rows":
+    start_row = st.number_input("Start Row", min_value=0, step=1)
+    end_row = st.number_input("End Row", min_value=0, step=1)
+
+elif st.session_state.search_option == "store_id":
+    store_ids = st.text_input("Enter Store IDs (comma-separated)")
+
+# ========= 📝 Selección de columnas para el nombre del archivo =========
+if data_file is not None:
+    # Leer la primera hoja del Excel
+    df = pd.read_excel(data_file, sheet_name=0)
+    column_names = df.columns.tolist()
+
+    selected_columns = st.multiselect(
+        "📂 Select and order the columns for the file name:",
+        column_names,
+        default=column_names[:3]
+    )
+
+    def get_filename_from_selection(row, selected_columns):
+        """Genera el nombre del archivo según las columnas seleccionadas."""
+        file_name_parts = [str(row[col])
+                           for col in selected_columns if col in row]
+        return "_".join(file_name_parts)
+
+    st.write("🔹 Example file name:", get_filename_from_selection(
+        df.iloc[0], selected_columns))
+
+# ========= 🚀 Botón de procesamiento =========
+if st.button("Process"):
+    if ppt_template and data_file:
+        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format)
+    else:
+        st.error("Please upload both files before processing.")
