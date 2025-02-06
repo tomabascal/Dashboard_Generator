@@ -12,8 +12,49 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
-import openpyxl
-from openpyxl.utils.dataframe import dataframe_to_rows
+
+
+def convert_pptx_to_pdf(pptx_path, pdf_path):
+    """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
+    try:
+        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf",
+                       pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
+    except Exception as e:
+        print(f"Error converting {pptx_path} to PDF: {e}")
+
+
+def create_zip_of_presentations(folder_path):
+    """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for file in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, file)
+            if file.endswith(".pptx"):  # Evitamos incluir plantilla y Excel
+                zipf.write(file_path, arcname=file)
+
+    zip_buffer.seek(0)
+    return zip_buffer
+
+
+def get_filename_from_selection(row, selected_columns):
+    """Genera el nombre del archivo según las columnas seleccionadas."""
+    file_name_parts = [str(row[col]) for col in selected_columns if col in row]
+    return "_".join(file_name_parts)
+
+
+def update_text_of_textbox(presentation, column_letter, new_text):
+    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
+    pattern = rf"\{{{column_letter}\}}"
+
+    for slide in presentation.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame and shape.text:
+                if re.search(pattern, shape.text):
+                    text_frame = shape.text_frame
+                    for paragraph in text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            run.text = re.sub(pattern, str(new_text), run.text)
 
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
@@ -34,11 +75,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         f.write(excel_file.getbuffer())
 
     try:
-        wb = openpyxl.load_workbook(excel_file_path, data_only=True)
-        ws = wb.active
-        data = ws.values
-        columns = next(data)[0:]
-        df1 = pd.DataFrame(data, columns=columns)
+        with pd.ExcelFile(excel_file_path) as xls:
+            df1 = pd.read_excel(xls, sheet_name=0)
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -88,49 +126,6 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     progress_text.write(f"✅ All reports have been generated in {
                         output_format} format! Total time: {int(time.time() - start_time)}s")
-
-
-def convert_pptx_to_pdf(pptx_path, pdf_path):
-    """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
-    try:
-        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf",
-                       pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
-    except Exception as e:
-        print(f"Error converting {pptx_path} to PDF: {e}")
-
-
-def create_zip_of_presentations(folder_path):
-    """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for file in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, file)
-            if file.endswith(".pptx"):  # Evitamos incluir plantilla y Excel
-                zipf.write(file_path, arcname=file)
-
-    zip_buffer.seek(0)
-    return zip_buffer
-
-
-def get_filename_from_selection(row, selected_columns):
-    """Genera el nombre del archivo según las columnas seleccionadas."""
-    file_name_parts = [str(row[col]) for col in selected_columns if col in row]
-    return "_".join(file_name_parts)
-
-
-def update_text_of_textbox(presentation, column_letter, new_text):
-    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
-    pattern = rf"\{{{column_letter}\}}"
-
-    for slide in presentation.slides:
-        for shape in slide.shapes:
-            if shape.has_text_frame and shape.text:
-                if re.search(pattern, shape.text):
-                    text_frame = shape.text_frame
-                    for paragraph in text_frame.paragraphs:
-                        for run in paragraph.runs:
-                            run.text = re.sub(pattern, str(new_text), run.text)
 
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
