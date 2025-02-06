@@ -13,6 +13,8 @@ from datetime import datetime
 import re
 import subprocess
 import openpyxl
+from openpyxl import load_workbook
+
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
@@ -130,40 +132,63 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
                         output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
-    """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
+def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
+    """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud, respetando el formato original de Excel."""
+    
+    # Cargar la presentación de PowerPoint
     presentation = pptx.Presentation(presentation_path)
 
+    # Cargar el archivo Excel con openpyxl para leer los formatos
+    wb = load_workbook(excel_file_path, data_only=True)
+    ws = wb.active  # Tomar la primera hoja del Excel
+
     for col_idx, col_name in enumerate(row.index):
-        column_letter = chr(65 + col_idx)
-        formatted_text = format_cell_value(df1.iloc[index, col_idx])
+        column_letter = chr(65 + col_idx)  # Convertir índice numérico en letra (A, B, C...)
+        excel_cell = ws[f"{column_letter}{index + 2}"]  # Ajuste para coincidir con filas de Excel (base 1)
+
+        # Obtener el valor formateado
+        formatted_text = format_cell_value(excel_cell, wb, ws.title)
+        
+        # Reemplazar el texto en la presentación
         update_text_of_textbox(presentation, column_letter, formatted_text)
 
+    # Generar el nombre del archivo basado en las columnas seleccionadas
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
 
+    # Guardar el archivo PPTX
     presentation.save(pptx_path)
 
+    # Convertir a PDF si es necesario
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)
+        os.remove(pptx_path)  # Eliminar el PPTX después de la conversión
 
 
-def format_cell_value(cell_value):
-    """Formatea el valor de la celda según su tipo."""
-    if pd.isna(cell_value):
+def format_cell_value(cell, wb, sheet_name):
+    """Formatea el valor de la celda según su tipo y formato en Excel."""
+    if cell is None or cell.value is None:
         return ""
-    if isinstance(cell_value, (int, float)):
-        if 0 <= cell_value <= 1:
-            return f"{cell_value * 100:.1f}%"
-        return f"{cell_value:,.1f}"
-    if isinstance(cell_value, pd.Timestamp):
-        return cell_value.strftime("%d-%m-%Y")
-    if isinstance(cell_value, str):
-        if cell_value.endswith('%') or cell_value.endswith('€'):
-            return cell_value
-    return str(cell_value)
+    
+    value = cell.value
+    if isinstance(value, (int, float)):
+        # Obtener el formato de la celda
+        ws = wb[sheet_name]
+        cell_format = ws[cell.coordinate].number_format
+
+        # Identificar formato de moneda
+        if "€" in cell_format or "$" in cell_format or "₤" in cell_format:
+            return f"{value:,.2f} {cell_format.strip()}"
+        elif "%" in cell_format:
+            return f"{value * 100:.1f}%"
+        else:
+            return f"{value:,.1f}"
+
+    elif isinstance(value, datetime):
+        return value.strftime("%d-%m-%Y")  # Formato de fecha
+
+    return str(value)
 
 
 # ========= 💡 Estilos para mejorar el diseño =========
