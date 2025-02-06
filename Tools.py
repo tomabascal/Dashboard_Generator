@@ -174,13 +174,13 @@ if output_format == "PDF":
 
 # ========= 📂 Upload de archivos con formato mejorado =========
 st.markdown(
-    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: {A})*", unsafe_allow_html=True)
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `{A}`)*", unsafe_allow_html=True)
 ppt_template = st.file_uploader("", type=["pptx"])
 
 st.write("")  # Espaciado
 
 st.markdown(
-    "**Upload Excel File**  \n*(Column A must be Store ID)*", unsafe_allow_html=True)
+    "**Upload Excel File**  \n*(Column A must be `Store ID`)*", unsafe_allow_html=True)
 data_file = st.file_uploader("", type=["xlsx"])
 
 # ========= 🔍 Botones mejorados para "Search by" =========
@@ -202,7 +202,7 @@ with col2:
         st.session_state.search_option = "store_id"
 
 # Mostrar la opción seleccionada
-st.markdown(f"**Selected: {st.session_state.search_option}**")
+st.markdown(f"**Selected: `{st.session_state.search_option}`**")
 
 # ========= 🔢 Inputs para definir el rango de búsqueda =========
 start_row, end_row, store_ids = None, None, None
