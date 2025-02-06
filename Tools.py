@@ -177,16 +177,22 @@ def format_cell_value(cell, wb, sheet_name):
         # Limpiar caracteres especiales en los formatos numéricos
         cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  # Elimina todo excepto números, decimales y monedas
 
-        if any(symbol in cleaned_format for symbol in ["€", "$", "£"]):
-            currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
-            return f"{value:,.0f} {currency_symbol}"
+        currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
+
+        if currency_symbol:
+            # Redondear a 1 decimal y eliminar el .0 si es entero
+            rounded_value = round(value, 1)
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
         elif "%" in cleaned_format:
-            return f"{value * 100:.1f}%"
+            # Redondear porcentaje a 1 decimal y eliminar el .0 si es entero
+            percentage = round(value * 100, 1)
+            return f"{int(percentage) if percentage.is_integer() else percentage:.1f}%"
         else:
-            return f"{value:,.0f}"
+            # Redondear número normal a 1 decimal y eliminar el .0 si es entero
+            rounded_value = round(value, 1)
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')  # Redondeo de 1 decimal
 
-
-    elif isinstance(value, datetime):
+     elif isinstance(value, datetime):
         return value.strftime("%d-%m-%Y")  # Formato de fecha
 
     return str(value)
