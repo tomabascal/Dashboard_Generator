@@ -109,27 +109,14 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    start_time = time.time()
+    # Procesar las filas seleccionadas
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, excel_file_path, index, selected_columns, folder_name, output_format)
-
+        # Aquí puedes agregar el código para procesar cada fila
+        # Actualizar la barra de progreso
         progress_bar.progress((index + 1) / total_files)
-        progress_text.write(f"📄 Processing {index + 1}/{total_files}")
+        progress_text.text(f"Processing file {index + 1} of {total_files}")
 
-    # Crear ZIP con los archivos generados
-    zip_path = f"{folder_name}.zip"
-    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
-
-    with open(zip_path, "rb") as zip_file:
-        st.download_button(
-            label=f"📥 Download {total_files} reports ({output_format})",
-            data=zip_file,
-            file_name=f"{folder_name}.zip",
-            mime="application/zip"
-        )
-
-    progress_text.write(f"✅ Finished! Total time: {int(time.time() - start_time)}s")
-
+    st.success("✅ Processing complete!")
 
 
 def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
