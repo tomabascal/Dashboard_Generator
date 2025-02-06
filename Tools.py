@@ -155,7 +155,9 @@ def format_cell_value(cell_value):
     if pd.isna(cell_value):
         return ""
     if isinstance(cell_value, (int, float)):
-        return f"{cell_value:,.2f}"
+        if 0 <= cell_value <= 1:
+            return f"{cell_value * 100:.1f}%"
+        return f"{cell_value:,.1f}"
     if isinstance(cell_value, pd.Timestamp):
         return cell_value.strftime("%d-%m-%Y")
     if isinstance(cell_value, str):
