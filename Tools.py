@@ -12,32 +12,6 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
-import boto3
-
-# Cargar credenciales desde Streamlit Secrets
-AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
-AWS_SECRET_KEY = st.secrets["AWS_SECRET_KEY"]
-AWS_REGION = st.secrets["AWS_REGION"]
-S3_BUCKET_NAME = st.secrets["S3_BUCKET_NAME"]
-
-# Bucket S3
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-    region_name=AWS_REGION,
-)
-
-def upload_to_s3(file_path, file_name):
-    """Sube un archivo a S3 y devuelve su URL de acceso público."""
-    try:
-        s3_key = f"pptx_reports/{file_name}"  # Carpeta en el bucket
-        s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key, ExtraArgs={"ACL": "public-read"})
-        file_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
-        return file_url
-    except Exception as e:
-        print(f"Error subiendo a S3: {e}")
-        return None
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
@@ -47,6 +21,7 @@ def convert_pptx_to_pdf(pptx_path, pdf_path):
                        pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
     except Exception as e:
         print(f"Error converting {pptx_path} to PDF: {e}")
+
 
 def create_zip_of_presentations(folder_path):
     """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
@@ -61,10 +36,12 @@ def create_zip_of_presentations(folder_path):
     zip_buffer.seek(0)
     return zip_buffer
 
+
 def get_filename_from_selection(row, selected_columns):
     """Genera el nombre del archivo según las columnas seleccionadas."""
     file_name_parts = [str(row[col]) for col in selected_columns if col in row]
     return "_".join(file_name_parts)
+
 
 def update_text_of_textbox(presentation, column_letter, new_text):
     """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
@@ -78,6 +55,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
+
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
@@ -132,7 +110,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         progress = current_file / total_files
         progress_bar.progress(progress)
         elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        progress_text.write(f"📄 Generating {
+                            current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
@@ -145,7 +124,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ All reports have been generated in {
+                        output_format} format! Total time: {int(time.time() - start_time)}s")
+
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
@@ -164,6 +145,7 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)
+
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
@@ -187,7 +169,8 @@ output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
 # Mensaje de advertencia si el usuario elige PDF
 if output_format == "PDF":
-    st.warning("⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
+    st.warning(
+        "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
 
 # ========= 📂 Upload de archivos con formato mejorado =========
 st.markdown(
@@ -255,6 +238,7 @@ if data_file is not None:
 # ========= 🚀 Botón de procesamiento =========
 if st.button("Process"):
     if ppt_template and data_file:
-        process_files(ppt_template, data_file, st.session_state.search_option, start_row, end_row, store_ids, selected_columns, output_format)
+        process_files(ppt_template, data_file, st.session_state.search_option,
+                      start_row, end_row, store_ids, selected_columns, output_format)
     else:
         st.error("Please upload both files before processing.")
