@@ -130,15 +130,13 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
                         output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, percentage_columns):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        is_percentage = col_name in percentage_columns
-        formatted_text = format_cell_value(
-            df1.iloc[index, col_idx], is_percentage)
+        formatted_text = format_cell_value(df1.iloc[index, col_idx])
         update_text_of_textbox(presentation, column_letter, formatted_text)
 
     file_name = get_filename_from_selection(row, selected_columns)
@@ -152,12 +150,12 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         os.remove(pptx_path)
 
 
-def format_cell_value(cell_value, is_percentage=False):
+def format_cell_value(cell_value):
     """Formatea el valor de la celda según su tipo."""
     if pd.isna(cell_value):
         return ""
     if isinstance(cell_value, (int, float)):
-        if is_percentage:
+        if 0 <= cell_value <= 1:
             return f"{cell_value * 100:.1f}%"
         return f"{cell_value:,.1f}"
     if isinstance(cell_value, pd.Timestamp):
