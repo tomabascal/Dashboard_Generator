@@ -46,11 +46,10 @@ def get_filename_from_selection(selection):
     """
     filename_parts = []
     for item in selection:
-        if isinstance(item, (int, float)):
-            if isinstance(item, float) and item.is_integer():
-                filename_parts.append(f"{int(item)}")
-            else:
-                filename_parts.append(f"{item}")
+        if isinstance(item, float) and item.is_integer():
+            filename_parts.append(f"{int(item)}")
+        elif isinstance(item, float):
+            filename_parts.append(f"{item}".rstrip('0').rstrip('.'))
         else:
             filename_parts.append(str(item))
     return "_".join(filename_parts)
@@ -98,7 +97,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]
+        df_selected = df1.iloc[start_row-2:end_row-2]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
