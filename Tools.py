@@ -127,18 +127,16 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-def update_text_of_textbox(presentation, column_letter, new_text):
-    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
-    pattern = rf"\{{{column_letter}\}}"
+import re
 
+def update_text_of_textbox(presentation, column_letter, text):
+    pattern = r"\b{}\b".format(re.escape(column_letter))  # Asegúrate de que el patrón esté correctamente escapado
     for slide in presentation.slides:
         for shape in slide.shapes:
-            if shape.has_text_frame and shape.text:
+            if shape.has_text_frame:
                 if re.search(pattern, shape.text):
-                    text_frame = shape.text_frame
-                    for paragraph in text_frame.paragraphs:
-                        for run in paragraph.runs:
-                            run.text = re.sub(pattern, str(new_text), run.text)
+                    shape.text = text
+                    return
 
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
