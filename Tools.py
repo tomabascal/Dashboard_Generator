@@ -12,7 +12,17 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
+import openpyxl
+from openpyxl.styles import numbers
 
+def get_formatted_value(cell):
+    """Obtiene el valor formateado de una celda (como porcentaje, fecha, etc.)."""
+    if cell.number_format == numbers.FORMAT_PERCENTAGE:
+        return f"{cell.value * 100:.0f}%"  # Formatea el porcentaje
+    elif cell.is_date:
+        return cell.value.strftime('%d/%m/%Y')  # Formatea la fecha
+    else:
+        return cell.value
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
@@ -75,17 +85,19 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         f.write(excel_file.getbuffer())
 
     try:
-        with pd.ExcelFile(excel_file_path) as xls:
-            df1 = pd.read_excel(xls, sheet_name=0)
+        # Abrimos el archivo Excel con openpyxl
+        wb = openpyxl.load_workbook(excel_file_path)
+        sheet = wb.active
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
 
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row:end_row + 1]
+        df_selected = pd.DataFrame(sheet.iter_rows(min_row=start_row + 1, max_row=end_row + 1, values_only=False))
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
-        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
+        df_selected = pd.DataFrame(sheet.iter_rows(values_only=False))
+        df_selected = df_selected[df_selected.iloc[:, 0].astype(str).isin(store_id_list)]
     else:
         df_selected = pd.DataFrame()
 
@@ -104,14 +116,12 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index,
-                    selected_columns, folder_name, output_format)
+        process_row(ppt_template_path, row, sheet, index, selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
         elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {
-                            current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
@@ -124,17 +134,19 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {
-                        output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
+def process_row(presentation_path, row, sheet, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        update_text_of_textbox(presentation, column_letter, row[col_name])
+        
+        # Usamos get_formatted_value para obtener el valor con formato
+        formatted_value = get_formatted_value(sheet.cell(row=index+1, column=col_idx+1))  # Corregimos índice
+        update_text_of_textbox(presentation, column_letter, formatted_value)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -145,7 +157,6 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)
-
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
