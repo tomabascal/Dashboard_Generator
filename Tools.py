@@ -142,8 +142,7 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
         cell_format = get_cell_format(df1, index, col_idx)
-        update_text_of_textbox(presentation, column_letter,
-                               row[col_name], cell_format)
+        update_text_of_textbox(presentation, column_letter, row[col_name], cell_format)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -160,10 +159,10 @@ def get_cell_format(df, row_idx, col_idx):
     """Obtiene el formato de la celda del DataFrame."""
     cell = df.iloc[row_idx, col_idx]
     cell_format = {
-        'font_size': cell.font.size,
-        'bold': cell.font.bold,
-        'italic': cell.font.italic,
-        'font_color': cell.font.color.rgb if cell.font.color else (0, 0, 0)
+        'font_size': cell.font.size if cell.font else 11,
+        'bold': cell.font.bold if cell.font else False,
+        'italic': cell.font.italic if cell.font else False,
+        'font_color': cell.font.color.rgb if cell.font and cell.font.color else (0, 0, 0)
     }
     return cell_format
 
