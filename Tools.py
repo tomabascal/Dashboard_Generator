@@ -223,7 +223,7 @@ if st.button("Process"):
     if ppt_template and data_file:
         try:
             process_files(ppt_template, data_file, st.session_state.search_option,
-                          start_row, end_row, store_ids, selected_columns, output_format)
+                          start_row, end_row, store_ids, selected_columns, output_format, output_format)
         except TypeError as e:
             st.error(f"TypeError: {e}")
     else:
