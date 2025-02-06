@@ -12,6 +12,7 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
+import openpyxl
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
