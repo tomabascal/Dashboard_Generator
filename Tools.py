@@ -12,6 +12,33 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
+import boto3
+
+# Cargar credenciales desde Streamlit Secrets
+AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
+AWS_SECRET_KEY = st.secrets["AWS_SECRET_KEY"]
+AWS_REGION = st.secrets["AWS_REGION"]
+S3_BUCKET_NAME = st.secrets["S3_BUCKET_NAME"]
+
+# Bucket S3
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+    region_name=AWS_REGION,
+)
+
+def upload_to_s3(file_path, file_name):
+    """Sube un archivo a S3 y devuelve su URL de acceso público."""
+    try:
+        s3_key = f"pptx_reports/{file_name}"  # Carpeta en el bucket
+        s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key, ExtraArgs={"ACL": "public-read"})
+        file_url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
+        return file_url
+    except Exception as e:
+        print(f"Error subiendo a S3: {e}")
+        return None
+
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
