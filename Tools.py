@@ -40,17 +40,10 @@ def create_zip_of_presentations(folder_path):
     return zip_buffer
 
 
-def get_filename_from_selection(selection):
-    """
-    Genera un nombre de archivo basado en la selección.
-    """
-    filename_parts = []
-    for item in selection:
-        if isinstance(item, float) and item.is_integer():
-            filename_parts.append(f"{int(item)}")
-        else:
-            filename_parts.append(str(item))
-    return "_".join(filename_parts)
+def get_filename_from_selection(row, selected_columns):
+    """Genera el nombre del archivo según las columnas seleccionadas."""
+    file_name_parts = [str(row[col]) for col in selected_columns if col in row]
+    return "_".join(file_name_parts)
 
 
 def update_text_of_textbox(presentation, column_letter, new_text):
@@ -95,7 +88,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row-2]
+        df_selected = df1.iloc[start_row-2:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
