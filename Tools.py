@@ -77,7 +77,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         return
 
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]  # Ajustar índices restando 1
+        df_selected = df1.iloc[start_row-2:end_row, [0]]  # Ajustar índices restando 1
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -86,7 +86,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
+        st.error("⚠️ No data in such rows. Verify filters.")
         return
 
     estimated_time = total_files * (5 if output_format == "PDF" else 1)
