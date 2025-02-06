@@ -162,21 +162,20 @@ def process_row(presentation_path, row, excel_file_path, index, selected_columns
         os.remove(pptx_path)  # Eliminar el PPTX después de la conversión
 
 
-
 def format_cell_value(cell, wb, sheet_name):
-    """Formatea el valor de la celda según su tipo y formato en Excel."""
+    """Formatea y redondea el valor de la celda según su tipo y formato en Excel."""
     if cell is None or cell.value is None:
         return ""
     
     value = cell.value
     if isinstance(value, (int, float)):
-        # Obtener el formato de la celda
         ws = wb[sheet_name]
         cell_format = ws[cell.coordinate].number_format
 
-        # Limpiar caracteres especiales en los formatos numéricos
-        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  # Elimina todo excepto números, decimales y monedas
+        # Limpiar caracteres extraños del formato (ej. \#,##0\ "€")
+        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  
 
+        # Identificar el símbolo de moneda si existe
         currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
 
         if currency_symbol:
@@ -184,9 +183,12 @@ def format_cell_value(cell, wb, sheet_name):
             rounded_value = round(value, 1)
             return f"{rounded_value:,.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
         elif "%" in cleaned_format:
-            # Redondear porcentaje a 1 decimal y eliminar el .0 si es entero
+            # Redondear porcentaje a 1 decimal, pero nunca mostrar .0
             percentage = round(value * 100, 1)
-            return f"{int(percentage) if percentage.is_integer() else percentage:.1f}%"
+            if percentage.is_integer():  # Si el porcentaje es un número entero
+                return f"{int(percentage)}%"  # No mostrar decimales
+            else:
+                return f"{percentage:.1f}%"  # Mostrar un decimal
         else:
             # Redondear número normal a 1 decimal y eliminar el .0 si es entero
             rounded_value = round(value, 1)
@@ -196,7 +198,6 @@ def format_cell_value(cell, wb, sheet_name):
         return value.strftime("%d-%m-%Y")  # Formato de fecha
 
     return str(value)
-
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
