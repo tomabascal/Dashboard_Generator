@@ -58,43 +58,15 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                             run.text = re.sub(pattern, str(new_text), run.text)
 
 
-def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
-    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    folder_name = f"Presentations_{timestamp}"
-    os.makedirs(folder_name, exist_ok=True)
+def process_files(ppt_template_path, data_file, search_option, selected_columns, output_folder, output_format):
+    """Procesa los archivos y genera las presentaciones."""
+    df1 = pd.read_excel(data_file, engine='openpyxl')
+    wb = openpyxl.load_workbook(data_file)
+    sheet_name = wb.sheetnames[0]  # Ajusta según el nombre de tu hoja
 
-    temp_folder = "temp_files"
-    os.makedirs(temp_folder, exist_ok=True)
-
-    ppt_template_path = os.path.join(temp_folder, ppt_file.name)
-    excel_file_path = os.path.join(temp_folder, excel_file.name)
-
-    with open(ppt_template_path, "wb") as f:
-        f.write(ppt_file.getbuffer())
-    with open(excel_file_path, "wb") as f:
-        f.write(excel_file.getbuffer())
-
-    try:
-        with pd.ExcelFile(excel_file_path) as xls:
-            df1 = pd.read_excel(xls, sheet_name=0)
-    except PermissionError as e:
-        st.error(f"Error reading Excel file: {e}")
-        return
-
-    if search_option == 'rows':
-        # Ajustar índices restando 1
-        df_selected = df1.iloc[start_row-2:end_row]
-    elif search_option == 'store_id':
-        store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
-        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
-    else:
-        df_selected = pd.DataFrame()
-
+    # Ajusta según tu lógica de selección
+    df_selected = df1[df1['search_column'] == search_option]
     total_files = len(df_selected)
-    if total_files == 0:
-        st.error("⚠️ No data in such rows. Verify filters.")
-        return
 
     estimated_time = total_files * (5 if output_format == "PDF" else 1)
     st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
@@ -106,8 +78,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index,
-                    selected_columns, folder_name, output_format)
+        process_row(ppt_template_path, row, df1, index, selected_columns,
+                    output_folder, output_format, wb, sheet_name)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
@@ -115,19 +87,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         progress_text.write(f"📄 Generating {
                             current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
-    zip_path = f"{folder_name}.zip"
-    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
-
-    with open(zip_path, "rb") as zip_file:
-        st.download_button(
-            label=f"📥 Download {total_files} reports ({output_format})",
-            data=zip_file,
-            file_name=f"{folder_name}.zip",
-            mime="application/zip"
-        )
-
-    progress_text.write(f"✅ All reports have been generated in {
-                        output_format} format! Total time: {int(time.time() - start_time)}s")
+    zip_path = f"{output_folder}.zip"
+    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', output_folder)
+    return zip_path
 
 
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
