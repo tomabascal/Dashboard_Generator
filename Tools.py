@@ -192,7 +192,7 @@ def format_cell_value(cell, wb, sheet_name):
             rounded_value = round(value, 1)
             return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')  # Redondeo de 1 decimal
 
-     elif isinstance(value, datetime):
+    elif isinstance(value, datetime):
         return value.strftime("%d-%m-%Y")  # Formato de fecha
 
     return str(value)
