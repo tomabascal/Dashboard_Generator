@@ -58,7 +58,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                             run.text = re.sub(pattern, str(new_text), run.text)
 
 
-def process_files(ppt_template_path, data_file, search_option, selected_columns, output_folder, output_format):
+def process_files(ppt_template, data_file, search_option, start_row, end_row, store_ids, selected_columns, output_folder, output_format):
     """Procesa los archivos y genera las presentaciones."""
     df1 = pd.read_excel(data_file, engine='openpyxl')
     wb = openpyxl.load_workbook(data_file)
@@ -78,7 +78,7 @@ def process_files(ppt_template_path, data_file, search_option, selected_columns,
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index, selected_columns,
+        process_row(row, df1, index, selected_columns,
                     output_folder, output_format, wb, sheet_name)
         current_file += 1
         progress = current_file / total_files
@@ -221,7 +221,10 @@ if data_file is not None:
 # ========= 🚀 Botón de procesamiento =========
 if st.button("Process"):
     if ppt_template and data_file:
-        process_files(ppt_template, data_file, st.session_state.search_option,
-                      start_row, end_row, store_ids, selected_columns, output_format)
+        try:
+            process_files(ppt_template, data_file, st.session_state.search_option,
+                          start_row, end_row, store_ids, selected_columns, output_format)
+        except TypeError as e:
+            st.error(f"TypeError: {e}")
     else:
         st.error("Please upload both files before processing.")
