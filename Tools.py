@@ -59,6 +59,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
 
+                            
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud respetando formatos del Excel."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -79,18 +80,15 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Leer el archivo Excel con pandas para filtrar datos
     try:
-        df1 = pd.read_excel(excel_file_path, sheet_name=0)
+        with pd.ExcelFile(excel_file_path) as xls:
+            df1 = pd.read_excel(xls, sheet_name=0)
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
 
-    # Ajustar los índices de las filas seleccionadas
-    start_row_index = start_row - 1
-    end_row_index = end_row - 1
-
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row_index:end_row_index + 1]
+        df_selected = df1.iloc[start_row-2:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -107,15 +105,27 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Procesar las filas seleccionadas
+    start_time = time.time()
     for index, row in df_selected.iterrows():
-        # Aquí puedes agregar el código para procesar cada fila
-        # Actualizar la barra de progreso
-        progress_value = (index + 1) / total_files
-        progress_bar.progress(progress_value)
-        progress_text.text(f"Processing file {index + 1} of {total_files}")
+        process_row(ppt_template_path, row, excel_file_path, index, selected_columns, folder_name, output_format)
 
-    st.success("✅ Processing complete!")
+        progress_bar.progress((index + 1) / total_files)
+        progress_text.write(f"📄 Processing {index + 1}/{total_files}")
+
+    # Crear ZIP con los archivos generados
+    zip_path = f"{folder_name}.zip"
+    shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
+
+    with open(zip_path, "rb") as zip_file:
+        st.download_button(
+            label=f"📥 Download {total_files} reports ({output_format})",
+            data=zip_file,
+            file_name=f"{folder_name}.zip",
+            mime="application/zip"
+        )
+
+    progress_text.write(f"✅ Finished! Total time: {int(time.time() - start_time)}s")
+
 
 
 def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
