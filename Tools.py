@@ -41,22 +41,9 @@ def create_zip_of_presentations(folder_path):
 
 
 def get_filename_from_selection(row, selected_columns):
-    """Genera el nombre del archivo según las columnas seleccionadas, 
-       redondeando la columna 1 a un número entero si es numérica."""
-    
-    file_name_parts = []
-    
-    for i, col in enumerate(selected_columns):
-        value = row[col]
-        
-        # Si es la segunda columna (índice 1) y es numérica, la redondeamos
-        if i == 0 and isinstance(value, (int, float)):  
-            value = round(value)  # Redondeo a entero
-        
-        file_name_parts.append(str(value))
-    
+    """Genera el nombre del archivo según las columnas seleccionadas."""
+    file_name_parts = [str(row[col]) for col in selected_columns if col in row]
     return "_".join(file_name_parts)
-
 
 
 def update_text_of_textbox(presentation, column_letter, new_text):
