@@ -88,7 +88,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]
+        df_selected = df1.iloc[start_row-1:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -260,8 +260,9 @@ st.markdown(f"**Selected: `{st.session_state.search_option}`**")
 start_row, end_row, store_ids = None, None, None
 
 if st.session_state.search_option == "rows":
-    start_row = st.number_input("Start Row", min_value=0, step=1)
-    end_row = st.number_input("End Row", min_value=0, step=1)
+    start_row = st.number_input("Start Row (Excel numbering)", min_value=1, step=1)
+    end_row = st.number_input("End Row (Excel numbering)", min_value=1, step=1)
+
 
 elif st.session_state.search_option == "store_id":
     store_ids = st.text_input("Enter Store IDs (comma-separated)")
