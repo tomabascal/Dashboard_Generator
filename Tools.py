@@ -109,14 +109,19 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Procesar las filas seleccionadas
-    for index, row in df_selected.iterrows():
-        # Aquí puedes agregar el código para procesar cada fila
-        # Actualizar la barra de progreso
-        progress_bar.progress((index + 1) / total_files)
-        progress_text.text(f"Processing file {index + 1} of {total_files}")
+    # Verificación para evitar división por cero
+    if total_files > 0:
+        # Procesar las filas seleccionadas
+        for index, row in df_selected.iterrows():
+            # Actualizar la barra de progreso
+            progress_value = (index + 1) / total_files
+            progress_bar.progress(progress_value)
+            progress_text.text(f"Processing file {index + 1} of {total_files}")
 
-    st.success("✅ Processing complete!")
+        st.success("✅ Processing complete!")
+    else:
+        st.error("⚠️ No data found for processing.")
+
 
 
 def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
