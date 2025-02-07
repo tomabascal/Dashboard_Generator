@@ -92,7 +92,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row_index:end_row_index]
+        df_selected = df1.iloc[start_row_index:end_row_index + 1]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -112,7 +112,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     # Verificación para evitar división por cero y validación del valor de la barra de progreso
     if total_files > 0:
         for index, row in df_selected.iterrows():
-            progress_value = (index) / total_files
+            progress_value = (index + 1) / total_files
 
             # Asegurarnos de que el valor esté en el rango de 0 a 1
             if progress_value < 0:
@@ -122,7 +122,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
             # Actualizar la barra de progreso solo si el valor es válido
             progress_bar.progress(progress_value)
-            progress_text.text(f"Processing file {index} of {total_files}")
+            progress_text.text(f"Processing file {index + 1} of {total_files}")
 
         st.success("✅ Processing complete!")
     else:
