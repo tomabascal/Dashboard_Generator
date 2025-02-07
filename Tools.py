@@ -59,7 +59,6 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
 
-
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud respetando formatos del Excel."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -80,8 +79,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Leer el archivo Excel con pandas para filtrar datos
     try:
-        with pd.ExcelFile(excel_file_path) as xls:
-            df1 = pd.read_excel(xls, sheet_name=0)
+        df1 = pd.read_excel(excel_file_path, sheet_name=0)
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -109,25 +107,15 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Verificación para evitar división por cero y validación del valor de la barra de progreso
-    if total_files > 0:
-        for index, row in df_selected.iterrows():
-            progress_value = (index + 1) / total_files
+    # Procesar las filas seleccionadas
+    for index, row in df_selected.iterrows():
+        # Aquí puedes agregar el código para procesar cada fila
+        # Actualizar la barra de progreso
+        progress_value = (index + 1) / total_files
+        progress_bar.progress(progress_value)
+        progress_text.text(f"Processing file {index + 1} of {total_files}")
 
-            # Asegurarnos de que el valor esté en el rango de 0 a 1
-            if progress_value < 0:
-                progress_value = 0
-            elif progress_value > 1:
-                progress_value = 1
-
-            # Actualizar la barra de progreso solo si el valor es válido
-            progress_bar.progress(progress_value)
-            progress_text.text(f"Processing file {index + 1} of {total_files}")
-
-        st.success("✅ Processing complete!")
-    else:
-        st.error("⚠️ No data found for processing.")
-
+    st.success("✅ Processing complete!")
 
 
 def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
