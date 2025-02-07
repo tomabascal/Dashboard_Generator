@@ -88,7 +88,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]
+        df_selected = df1.iloc[start_row-1:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -102,15 +102,15 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     st.info(f"⏳ Estimated time: ~{total_files} seconds")
 
+    
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
     start_time = time.time()
-    for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, excel_file_path, index, selected_columns, folder_name, output_format)
-
-        progress_bar.progress((index + 1) / total_files)
-        progress_text.write(f"📄 Processing {index + 1}/{total_files}")
+    for i, (_, row) in enumerate(df_selected.iterrows()):  # Enumerar para obtener un contador secuencial
+        process_row(ppt_template_path, row, excel_file_path, i, selected_columns, folder_name, output_format)
+        progress_bar.progress((i + 1) / total_files)  # Usar el contador secuencial
+        progress_text.write(f"📄 Processing {i + 1}/{total_files}")
 
     # Crear ZIP con los archivos generados
     zip_path = f"{folder_name}.zip"
