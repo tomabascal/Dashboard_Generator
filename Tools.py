@@ -59,7 +59,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(new_text), run.text)
 
-                            
+
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud respetando formatos del Excel."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -88,7 +88,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Aplicar filtros según la opción seleccionada
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row]
+        df_selected = df1.iloc[start_row:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
