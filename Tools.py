@@ -109,12 +109,18 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Verificación para evitar división por cero
+    # Verificación para evitar división por cero y validación del valor de la barra de progreso
     if total_files > 0:
-        # Procesar las filas seleccionadas
         for index, row in df_selected.iterrows():
-            # Actualizar la barra de progreso
             progress_value = (index + 1) / total_files
+
+            # Asegurarnos de que el valor esté en el rango de 0 a 1
+            if progress_value < 0:
+                progress_value = 0
+            elif progress_value > 1:
+                progress_value = 1
+
+            # Actualizar la barra de progreso solo si el valor es válido
             progress_bar.progress(progress_value)
             progress_text.text(f"Processing file {index + 1} of {total_files}")
 
