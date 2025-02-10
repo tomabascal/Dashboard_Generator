@@ -190,6 +190,12 @@ def process_row(presentation_path, row, excel_file_path, index, selected_columns
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)  # Delete the PPTX after conversion
+    
+    s3_url = upload_to_s3(pptx_path, os.path.basename(pptx_path))
+    if s3_url:
+        print(f"Subido a S3: {s3_url}")
+    else:
+        print("❌ Error al subir el archivo a S3")
 
 
 # Function to format Excel cell values based on their type
