@@ -269,7 +269,7 @@ if data_file is not None:
     selected_columns = st.multiselect(
         "📂 Select and order the columns for the file name:",
         column_names,
-        default=column_names[:3]
+        default=column_names[:1]
     )
 
     def get_filename_from_selection(row, selected_columns):
