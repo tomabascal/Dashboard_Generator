@@ -231,7 +231,7 @@ if output_format == "PDF":
 
 # ========= 📂 Enhanced file upload =========
 st.markdown(
-    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `**{A}**`)*", unsafe_allow_html=True)
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `*{A}*`)*", unsafe_allow_html=True)
 ppt_template = st.file_uploader("", type=["pptx"])
 
 st.write("")  # Space between file uploaders
