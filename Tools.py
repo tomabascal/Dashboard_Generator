@@ -218,7 +218,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ========= Title =========
-st.title("Shopfully Dashboard Generator")
+st.title("Shopfully Target By Store Reporting Tool")
 
 # Option to choose the output format
 st.markdown("### **Select Output Format**")
@@ -231,7 +231,7 @@ if output_format == "PDF":
 
 # ========= 📂 Enhanced file upload =========
 st.markdown(
-    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: **`{A}`**)*", unsafe_allow_html=True)
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: ***`{A}`***)*", unsafe_allow_html=True)
 ppt_template = st.file_uploader("", type=["pptx"])
 
 st.write("")  # Space between file uploaders
