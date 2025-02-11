@@ -130,14 +130,14 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        update_text_of_textbox(presentation, column_letter, row[col_name])
+        formatted_value = format_cell_value(row[col_name], wb, sheet_name)
+        update_text_of_textbox(presentation, column_letter, formatted_value)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -149,7 +149,8 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)  # Eliminar el PPTX original para solo guardar el PDF
+    
+    os.remove(pptx_path)  # Eliminar el PPTX original para solo guardar el PDF
 
 # Function to format Excel cell values based on their type
 def format_cell_value(cell, wb, sheet_name):
