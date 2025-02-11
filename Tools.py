@@ -294,3 +294,6 @@ if data_file is not None:
 if st.button("Process"):
     if ppt_template and data_file:
         process_files(ppt_template, data_file, st.session_state.search_option,
+                      start_row, end_row, store_ids, selected_columns, output_format)
+    else:
+        st.error("Please upload both files before processing.")
