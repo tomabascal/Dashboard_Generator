@@ -229,13 +229,15 @@ st.title("Shopfully Target By Store Reporting Tool")
 # Option to choose output format
 st.markdown("### **Select Output Format**")
 output_format = st.radio("Choose the file format:", [
-                         "PPTX (Recommended)", "PDF"])
+                         "PPTX", "PDF"])
 
-# Warning message if the user chooses PDF
-if output_format == "PDF":
-    st.warning(
-        "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
-
+# Warning message for PDF
+st.markdown("**PPTX**")
+st.warning(
+    "`Recommended!`")
+st.markdown("**PDF**")
+st.warning(
+    "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
 
 # ========= 📂 Upload files with improved format =========
 st.markdown(
