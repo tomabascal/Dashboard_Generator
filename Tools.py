@@ -66,8 +66,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
 
 # Function to process the files and generate the reports                    
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
-    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
-    
+    """Generates reports in PPTX or PDF format on Streamlit Cloud while preserving the Excel formatting."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
@@ -75,6 +74,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     temp_folder = "temp_files"
     os.makedirs(temp_folder, exist_ok=True)
 
+    # Save temporary files.
     ppt_template_path = os.path.join(temp_folder, ppt_file.name)
     excel_file_path = os.path.join(temp_folder, excel_file.name)
 
@@ -83,6 +83,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     with open(excel_file_path, "wb") as f:
         f.write(excel_file.getbuffer())
 
+    # Leer el archivo Excel con pandas para filtrar datos
     try:
         with pd.ExcelFile(excel_file_path) as xls:
             df1 = pd.read_excel(xls, sheet_name=0)
@@ -90,6 +91,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         st.error(f"Error reading Excel file: {e}")
         return
 
+    # Read the Excel file with pandas to filter data.
     if search_option == 'rows':
         df_selected = df1.iloc[start_row-2:end_row-1]
     elif search_option == 'store_id':
@@ -100,28 +102,22 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
+        st.error("⚠️ No data found. Verify filters.")
         return
 
-    # 🔹 Aviso de tiempo estimado según el formato elegido
-    estimated_time = total_files * (5 if output_format == "PDF" else 1)
-    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
+    st.info(f"⏳ Estimated time: ~{total_files} seconds")
 
+    
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    current_file = 0
     start_time = time.time()
+    for i, (_, row) in enumerate(df_selected.iterrows()):  # Enumerate to get a sequential counter
+        process_row(ppt_template_path, row, excel_file_path, i, selected_columns, folder_name, output_format)
+        progress_bar.progress((i + 1) / total_files)  # Use the sequential counter
+        progress_text.write(f"📄 Processing {i + 1}/{total_files}")
 
-    for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
-        current_file += 1
-        progress = current_file / total_files
-        progress_bar.progress(progress)
-        elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
-
-    # Crear un ZIP con los archivos en el formato seleccionado
+    # Create ZIP with the generated files
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
@@ -133,7 +129,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ Finished! Total time: {int(time.time() - start_time)}s")
 
 
 # Function to process a row and generate a PPTX or PDF file while preserving the original Excel formatting
@@ -222,11 +218,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ========= Title =========
-st.title("Shopfully Target By Store Reporting Tool")
+st.title("Shopfully Dashboard Generator")
 
 # Option to choose the output format
 st.markdown("### **Select Output Format**")
-output_format = st.radio("Choose the file format:", ["PPTX `(recommended)`", "PDF"])
+output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
 # Warning message if the user chooses PDF
 if output_format == "PDF":
@@ -235,13 +231,13 @@ if output_format == "PDF":
 
 # ========= 📂 Enhanced file upload =========
 st.markdown(
-    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: **`{A}`**)*", unsafe_allow_html=True)
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: {A})*", unsafe_allow_html=True)
 ppt_template = st.file_uploader("", type=["pptx"])
 
 st.write("")  # Space between file uploaders
 
 st.markdown(
-    "**Upload Excel File**  \n*(Column A must be **Store ID**)*", unsafe_allow_html=True)
+    "**Upload Excel File**  \n*(Column A must be Store ID)*", unsafe_allow_html=True)
 data_file = st.file_uploader("", type=["xlsx"])
 
 # ========= 🔍 # Buttons for "Search by" =========
@@ -279,14 +275,6 @@ if data_file is not None:
     df = pd.read_excel(data_file, sheet_name=0)
     column_names = df.columns.tolist()
 
-    # Apply filters based on the selected option
-    if st.session_state.search_option == "rows" and start_row is not None and end_row is not None:
-        df = df.iloc[start_row:end_row]  # Adjust for zero-based index
-
-    elif st.session_state.search_option == "store_id" and store_ids:
-        store_ids_list = [int(id.strip()) for id in store_ids.split(',')]
-        df = df[df['store_id'].isin(store_ids_list)]
-
     selected_columns = st.multiselect(
         "📂 Select and order the columns for the file name:",
         column_names,
@@ -299,17 +287,10 @@ if data_file is not None:
                            for col in selected_columns if col in row]
         return "_".join(file_name_parts)
 
-if len(df) > 1:
     st.write("🔹 Example file name:", get_filename_from_selection(
-        df.iloc[1], selected_columns))
-else:
-    st.warning("The DataFrame does not have enough rows to display an example file name.")
-
+        df.iloc[0], selected_columns))
 
 # ========= 🚀 Process Button =========
 if st.button("Process"):
     if ppt_template and data_file:
         process_files(ppt_template, data_file, st.session_state.search_option,
-                      start_row, end_row, store_ids, selected_columns, output_format)
-    else:
-        st.error("Please upload both files before processing.")
