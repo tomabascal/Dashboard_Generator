@@ -78,12 +78,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     ppt_template_path = os.path.join(temp_folder, ppt_file.name)
     excel_file_path = os.path.join(temp_folder, excel_file.name)
 
-    with open(ppt_template_path, "wb") as f:
-        f.write(ppt_file.getbuffer())
-    with open(excel_file_path, "wb") as f:
-        f.write(excel_file.getbuffer())
-
-    # Leer el archivo Excel con pandas para filtrar datos
+# Leer el archivo Excel con pandas para filtrar datos
     try:
         with pd.ExcelFile(excel_file_path) as xls:
             df1 = pd.read_excel(xls, sheet_name=0)
@@ -91,28 +86,43 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         st.error(f"Error reading Excel file: {e}")
         return
 
-    # Read the Excel file with pandas to filter data.
+    # Save temporary files.
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row:end_row]
+        total_rows = end_row - start_row + 1
+        current_row = 0
+        for index, row in df1.iterrows():
+            if index < start_row or index > end_row:
+                continue
+            process_row(ppt_template_path, row, excel_file_path, i, selected_columns, folder_name, output_format)
+
+
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
-        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
-    else:
-        df_selected = pd.DataFrame()
+        total_ids = len(store_id_list)
+        current_id = 0
 
-    total_files = len(df_selected)
+        for store_id in store_id_list:
+            # Buscar la fila correspondiente al Store ID
+            print(f"Searching for Store ID: {store_id}")
+            matching_rows = df1[df1.iloc[:, 0].astype(str) == store_id]
+            if matching_rows.empty:
+                print(f"No matching rows found for Store ID: {store_id}")
+                continue
+
+        row = matching_rows.iloc[0]
+        index = row.name
+
+
+    total_files = len(total_rows)
     if total_files == 0:
         st.error("⚠️ No data found. Verify filters.")
         return
 
-    st.info(f"⏳ Estimated time: ~{total_files} seconds")
-
-    
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
     start_time = time.time()
-    for i, (_, row) in enumerate(df_selected.iterrows()):  # Enumerate to get a sequential counter
+    for i, (_, row) in enumerate(total_rows.iterrows()):  # Enumerate to get a sequential counter
         process_row(ppt_template_path, row, excel_file_path, i, selected_columns, folder_name, output_format)
         progress_bar.progress((i + 1) / total_files)  # Use the sequential counter
         progress_text.write(f"📄 Processing {i + 1}/{total_files}")
