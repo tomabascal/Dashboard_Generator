@@ -151,7 +151,43 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
         convert_pptx_to_pdf(pptx_path, pdf_path)
         os.remove(pptx_path)  # Eliminar el PPTX original para solo guardar el PDF
 
+# Function to format Excel cell values based on their type
+def format_cell_value(cell, wb, sheet_name):
+    """Formats and rounds the cell value based on its type and format in Excel."""
+    if cell is None or cell.value is None:
+        return ""
+    
+    value = cell.value
+    if isinstance(value, (int, float)):
+        ws = wb[sheet_name]
+        cell_format = ws[cell.coordinate].number_format
 
+        # Clean strange characters from the format (e.g., \#,##0\ "€")
+        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  
+
+        # Identify the currency symbol if it exists
+        currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
+
+        if currency_symbol:
+            # Round to 1 decimal and remove the .0 if it is an integer
+            rounded_value = round(value, 1)
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
+        elif "%" in cleaned_format:
+            # Round percentage to 1 decimal, but never show .0
+            percentage = round(value * 100, 1)
+            if percentage.is_integer():  # If the percentage is an integer
+                return f"{int(percentage)}%"  # Do not show decimals
+            else:
+                return f"{percentage:.1f}%"  # Show decimals
+        else:
+            # Round normal number to 1 decimal and remove the .0 if it is an integer
+            rounded_value = round(value, 1)
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')  # Round to 1 decimal
+
+    elif isinstance(value, datetime):
+        return value.strftime("%d-%m-%Y")  # Date format
+
+    return str(value)
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
