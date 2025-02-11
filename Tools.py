@@ -90,20 +90,11 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         st.error(f"Error reading Excel file: {e}")
         return
 
-    # Read the Excel file with pandas to filter data.
     if search_option == 'rows':
-        # Ajustar para la indexación de pandas (empezamos en 0, no en 1)
-        if start_row > 1 and end_row >= start_row:
-            df_selected = df1.iloc[start_row-1:end_row]  # Ajuste en índices
-        else:
-            df_selected = pd.DataFrame()  # Si el rango no es válido, no seleccionar filas.
+        df_selected = df1.iloc[start_row:end_row + 1]
     elif search_option == 'store_id':
-        # Asegurarse de que store_ids es una lista de números enteros
-        store_id_list = [store_id.strip() for store_id in store_ids.split(',') if store_id.strip().isdigit()]
-        if store_id_list:  # Solo filtrar si la lista no está vacía
-            df_selected = df1[df1['store_id'].isin(store_id_list)]
-        else:
-            df_selected = pd.DataFrame()  # Si no hay store_id válido, no seleccionar filas
+        store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
+        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
     else:
         df_selected = pd.DataFrame()
 
