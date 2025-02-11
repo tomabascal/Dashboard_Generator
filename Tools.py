@@ -237,7 +237,7 @@ ppt_template = st.file_uploader("", type=["pptx"])
 st.write("")  # Space between file uploaders
 
 st.markdown(
-    "**Upload Excel File**  \n*(Column A must be Store ID)*", unsafe_allow_html=True)
+    "**Upload Excel File**  \n*(Column A must be **Store ID**)*", unsafe_allow_html=True)
 data_file = st.file_uploader("", type=["xlsx"])
 
 # ========= 🔍 # Buttons for "Search by" =========
