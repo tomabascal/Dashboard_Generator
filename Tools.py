@@ -305,8 +305,12 @@ if data_file is not None:
                            for col in selected_columns if col in row]
         return "_".join(file_name_parts)
 
+if len(df) > 1:
     st.write("🔹 Example file name:", get_filename_from_selection(
         df.iloc[1], selected_columns))
+else:
+    st.warning("The DataFrame does not have enough rows to display an example file name.")
+
 
 # ========= 🚀 Process Button =========
 if st.button("Process"):
