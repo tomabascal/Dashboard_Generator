@@ -182,7 +182,8 @@ def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
         cell_format = cell.number_format
 
         # Clean strange characters from the format (e.g., \#,##0\ "€")
-        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)
+        # Removed ',' from the regex
+        cleaned_format = re.sub(r'[^\d.%€$£]', '', cell_format)
 
         # Identify the currency symbol if it exists
         currency_symbol = next(
@@ -191,7 +192,7 @@ def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
         if currency_symbol:
             # Round to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
-            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
+            return f"{rounded_value:.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
         elif "%" in cleaned_format:
             # Round percentage to 1 decimal, but never show .0
             percentage = round(value * 100, 1)
@@ -202,7 +203,7 @@ def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
         else:
             # Round normal number to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
-            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')
+            return f"{rounded_value:.1f}".rstrip('0').rstrip('.')
 
     elif isinstance(value, datetime):
         return value.strftime("%d-%m-%Y")  # Date format
