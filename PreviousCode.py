@@ -80,8 +80,6 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     try:
         with pd.ExcelFile(excel_file_path) as xls:
             df1 = pd.read_excel(xls, sheet_name=0)
-            wb = xls.book  
-            sheet_name = df1.name
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -110,7 +108,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format, wb, sheet_name)
+        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
@@ -133,14 +131,13 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        formatted_value = format_cell_value(df1[col_name], wb, sheet_name)
-        update_text_of_textbox(presentation, column_letter, formatted_value)
+        update_text_of_textbox(presentation, column_letter, row[col_name])
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
