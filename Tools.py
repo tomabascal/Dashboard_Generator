@@ -66,7 +66,8 @@ def update_text_of_textbox(presentation, column_letter, new_text):
 
 # Function to process the files and generate the reports                    
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
-    """Generates reports in PPTX or PDF format on Streamlit Cloud while preserving the Excel formatting."""
+    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
@@ -74,7 +75,6 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     temp_folder = "temp_files"
     os.makedirs(temp_folder, exist_ok=True)
 
-    # Save temporary files.
     ppt_template_path = os.path.join(temp_folder, ppt_file.name)
     excel_file_path = os.path.join(temp_folder, excel_file.name)
 
@@ -83,7 +83,6 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     with open(excel_file_path, "wb") as f:
         f.write(excel_file.getbuffer())
 
-    # Leer el archivo Excel con pandas para filtrar datos
     try:
         with pd.ExcelFile(excel_file_path) as xls:
             df1 = pd.read_excel(xls, sheet_name=0)
@@ -91,7 +90,6 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         st.error(f"Error reading Excel file: {e}")
         return
 
-    # Read the Excel file with pandas to filter data.
     if search_option == 'rows':
         df_selected = df1.iloc[start_row-2:end_row-1]
     elif search_option == 'store_id':
@@ -102,22 +100,28 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No data found. Verify filters.")
+        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
         return
 
-    st.info(f"⏳ Estimated time: ~{total_files} seconds")
+    # 🔹 Aviso de tiempo estimado según el formato elegido
+    estimated_time = total_files * (5 if output_format == "PDF" else 1)
+    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
 
-    
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
+    current_file = 0
     start_time = time.time()
-    for i, (_, row) in enumerate(df_selected.iterrows()):  # Enumerate to get a sequential counter
-        process_row(ppt_template_path, row, excel_file_path, i, selected_columns, folder_name, output_format)
-        progress_bar.progress((i + 1) / total_files)  # Use the sequential counter
-        progress_text.write(f"📄 Processing {i + 1}/{total_files}")
 
-    # Create ZIP with the generated files
+    for index, row in df_selected.iterrows():
+        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
+        current_file += 1
+        progress = current_file / total_files
+        progress_bar.progress(progress)
+        elapsed_time = time.time() - start_time
+        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+
+    # Crear un ZIP con los archivos en el formato seleccionado
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
@@ -129,7 +133,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ Finished! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
 # Function to process a row and generate a PPTX or PDF file while preserving the original Excel formatting
