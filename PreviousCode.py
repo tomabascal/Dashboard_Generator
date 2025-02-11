@@ -1,3 +1,4 @@
+# Importing the required libraries
 import streamlit as st
 import pandas as pd
 import pptx
@@ -15,8 +16,9 @@ import subprocess
 from openpyxl import load_workbook
 
 
+# Function to convert PPTX to PDF
 def convert_pptx_to_pdf(pptx_path, pdf_path):
-    """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
+    """Convert a PPTX file to PDF using LibreOffice (works on Streamlit Cloud)."""
     try:
         subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf",
                        pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
@@ -24,47 +26,51 @@ def convert_pptx_to_pdf(pptx_path, pdf_path):
         print(f"Error converting {pptx_path} to PDF: {e}")
 
 
+# Function to create a ZIP file with all the generated PPTX files
 def create_zip_of_presentations(folder_path):
-    """Crea un archivo ZIP con todos los PPTX generados en la carpeta."""
+    """Create a ZIP file with all the generated PPTX files in the folder."""
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
         for file in os.listdir(folder_path):
             file_path = os.path.join(folder_path, file)
-            if file.endswith(".pptx"):  # Evitamos incluir plantilla y Excel
+            if file.endswith(".pptx"):  # Avoid including template and Excel
                 zipf.write(file_path, arcname=file)
 
     zip_buffer.seek(0)
     return zip_buffer
 
 
+# Function to get the file name based on the selected columns
 def get_filename_from_selection(row, selected_columns):
-    """Genera el nombre del archivo según las columnas seleccionadas."""
+    """Generate the file name based on the selected columns."""
     file_name_parts = [str(row[col]) for col in selected_columns if col in row]
     return "_".join(file_name_parts)
 
 
+# Function to update the text of text boxes in the PPTX file
 def update_text_of_textbox(presentation, column_letter, new_text, wb, sheet_name, cell_coordinate):
-    """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
-    pattern = rf"\{{{column_letter}\}}"  # Expresión regular para encontrar "{A}", "{B}", etc.
+    """Find and replace text within text boxes that have the format {A}, {B}, etc."""
+    pattern = rf"\{{{column_letter}\}}"  # Regular expression to find "{A}", "{B}", etc.
 
-    # Formatear el texto según el formato de Excel
+    # Format the text according to the Excel format
     formatted_text = format_cell_value(
         new_text, wb, sheet_name, cell_coordinate)
 
     for slide in presentation.slides:
         for shape in slide.shapes:
             if shape.has_text_frame and shape.text:
-                if re.search(pattern, shape.text):  # Buscar patrón en el texto
+                if re.search(pattern, shape.text):  # Search for pattern in text
                     text_frame = shape.text_frame
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(
-                                formatted_text), run.text)  # Reemplazo
+                                formatted_text), run.text)  # Replace
 
 
+# Function to process the files and generate the reports
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
-    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
+    """Generate reports in PPTX or PDF format on Streamlit Cloud with estimated time notification."""
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
@@ -84,7 +90,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     try:
         wb = load_workbook(excel_file_path, data_only=True)
         df1 = pd.read_excel(excel_file_path, sheet_name=0)
-        sheet_name = wb.sheetnames[0]  # Obtener el nombre de la primera hoja
+        sheet_name = wb.sheetnames[0]  # Get the name of the first sheet
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -99,10 +105,10 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     total_files = len(df_selected)
     if total_files == 0:
-        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
+        st.error("⚠️ No files to generate. Check the filters.")
         return
 
-    # 🔹 Aviso de tiempo estimado según el formato elegido
+    # 🔹 Estimated time notification based on the chosen format
     estimated_time = total_files * (5 if output_format == "PDF" else 1)
     st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
 
@@ -122,7 +128,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         progress_text.write(
             f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
-    # Crear un ZIP con los archivos en el formato seleccionado
+    # Create a ZIP with the files in the selected format
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
 
@@ -138,8 +144,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
+# Function to process a row and generate a PPTX or PDF file
 def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
-    """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
+    """Process a row and generate a PPTX or PDF file on Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
@@ -152,14 +159,14 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
 
-    # Guardar como PPTX
+    # Save as PPTX
     presentation.save(pptx_path)
 
-    # Si el usuario elige PDF, convertir el archivo
+    # If the user chooses PDF, convert the file
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        # Eliminar el PPTX original para solo guardar el PDF
+        # Delete the original PPTX to only keep the PDF
         os.remove(pptx_path)
 
 
@@ -203,7 +210,7 @@ def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
     return str(value)
 
 
-# ========= 💡 Estilos para mejorar el diseño =========
+# ========= 💡 Styles to improve design =========
 st.markdown("""
     <style>
     div.stButton > button {
@@ -216,54 +223,54 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ========= Título =========
+# ========= Title =========
 st.title("Shopfully Dashboard Generator")
 
-# Opción para elegir el formato de salida
+# Option to choose output format
 st.markdown("### **Select Output Format**")
 output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
-# Mensaje de advertencia si el usuario elige PDF
+# Warning message if the user chooses PDF
 if output_format == "PDF":
     st.warning(
         "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
 
 
-# ========= 📂 Upload de archivos con formato mejorado =========
+# ========= 📂 Upload files with improved format =========
 st.markdown(
     "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: `{A}`)*", unsafe_allow_html=True)
 ppt_template = st.file_uploader("", type=["pptx"])
 
-st.write("")  # Espaciado
+st.write("")  # Spacing
 
 st.markdown(
     "**Upload Excel File**  \n*(Column A must be `Store ID`)*", unsafe_allow_html=True)
 data_file = st.file_uploader("", type=["xlsx"])
 
 
-# ========= 🔍 Botones mejorados para "Search by" =========
-st.markdown("### **Search by:**")  # Título en negrita y más grande
-col1, col2 = st.columns(2)  # Dos columnas para alinear botones en mosaico
+# ========= 🔍 Improved buttons for "Search by" =========
+st.markdown("### **Search by:**")  # Bold and larger title
+col1, col2 = st.columns(2)  # Two columns to align buttons in a grid
 
-# Inicializar la variable de estado para la selección del filtro
+# Initialize the state variable for filter selection
 if "search_option" not in st.session_state:
-    st.session_state.search_option = "rows"  # Valor por defecto
+    st.session_state.search_option = "rows"  # Default value
 
-# Botón 1 - Search by Rows
+# Button 1 - Search by Rows
 with col1:
     if st.button("🔢 Rows", use_container_width=True):
         st.session_state.search_option = "rows"
 
-# Botón 2 - Search by Store ID
+# Button 2 - Search by Store ID
 with col2:
     if st.button("🔍 Store ID", use_container_width=True):
         st.session_state.search_option = "store_id"
 
-# Mostrar la opción seleccionada
+# Show the selected option
 st.markdown(f"**Selected: `{st.session_state.search_option}`**")
 
 
-# ========= 🔢 Inputs para definir el rango de búsqueda =========
+# ========= 🔢 Inputs to define the search range =========
 start_row, end_row, store_ids = None, None, None
 
 if st.session_state.search_option == "rows":
@@ -274,9 +281,9 @@ elif st.session_state.search_option == "store_id":
     store_ids = st.text_input("Enter Store IDs (comma-separated)")
 
 
-# ========= 📝 Selección de columnas para el nombre del archivo =========
+# ========= 📝 Column selection for file name =========
 if data_file is not None:
-    # Leer la primera hoja del Excel
+    # Read the first sheet of the Excel file
     df = pd.read_excel(data_file, sheet_name=0)
     column_names = df.columns.tolist()
 
@@ -287,7 +294,7 @@ if data_file is not None:
     )
 
     def get_filename_from_selection(row, selected_columns):
-        """Genera el nombre del archivo según las columnas seleccionadas."""
+        """Generate the file name based on the selected columns."""
         file_name_parts = [str(row[col])
                            for col in selected_columns if col in row]
         return "_".join(file_name_parts)
@@ -296,7 +303,7 @@ if data_file is not None:
         df.iloc[0], selected_columns))
 
 
-# ========= 🚀 Botón de procesamiento =========
+# ========= 🚀 Processing button =========
 if st.button("Process"):
     if ppt_template and data_file:
         process_files(ppt_template, data_file, st.session_state.search_option,
