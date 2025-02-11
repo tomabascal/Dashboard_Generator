@@ -51,8 +51,9 @@ def get_filename_from_selection(row, selected_columns):
 
 # Function to update the text of a textbox in a PPTX presentation
 def update_text_of_textbox(presentation, column_letter, new_text):
-    """Searches and replaces text in textboxes with format {A}, {B}, etc."""
+    """Searches for and replaces text inside text boxes with the format {A}, {B}, etc., while preserving the PPTX formatting."""
     pattern = rf"\{{{column_letter}\}}"
+
     for slide in presentation.slides:
         for shape in slide.shapes:
             if shape.has_text_frame and shape.text:
@@ -65,70 +66,108 @@ def update_text_of_textbox(presentation, column_letter, new_text):
 
 # Function to process the files and generate the reports                    
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
-    """Processes the uploaded files and generates reports."""
+    """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
-    
+
     temp_folder = "temp_files"
     os.makedirs(temp_folder, exist_ok=True)
-    
+
     ppt_template_path = os.path.join(temp_folder, ppt_file.name)
     excel_file_path = os.path.join(temp_folder, excel_file.name)
-    
+
     with open(ppt_template_path, "wb") as f:
         f.write(ppt_file.getbuffer())
     with open(excel_file_path, "wb") as f:
         f.write(excel_file.getbuffer())
-    
-    df = pd.read_excel(excel_file_path, sheet_name=0)
-    
+
+    try:
+        with pd.ExcelFile(excel_file_path) as xls:
+            df1 = pd.read_excel(xls, sheet_name=0)
+    except PermissionError as e:
+        st.error(f"Error reading Excel file: {e}")
+        return
+
     if search_option == 'rows':
-        df_selected = df.iloc[start_row-2:end_row-1]
+        df_selected = df1.iloc[start_row-2:end_row-1]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
-        df_selected = df[df.iloc[:, 0].astype(str).isin(store_id_list)]
+        df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
     else:
         df_selected = pd.DataFrame()
-    
+
+    total_files = len(df_selected)
+    if total_files == 0:
+        st.error("⚠️ No hay archivos para generar. Verifica los filtros.")
+        return
+
+    # 🔹 Aviso de tiempo estimado según el formato elegido
+    estimated_time = total_files * (5 if output_format == "PDF" else 1)
+    st.info(f"⏳ Estimated time: ~{estimated_time} seconds")
+
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+
+    current_file = 0
+    start_time = time.time()
+
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, excel_file_path, index, selected_columns, folder_name, output_format)
-    
+        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
+        current_file += 1
+        progress = current_file / total_files
+        progress_bar.progress(progress)
+        elapsed_time = time.time() - start_time
+        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+
+    # Crear un ZIP con los archivos en el formato seleccionado
     zip_path = f"{folder_name}.zip"
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', folder_name)
-    
+
     with open(zip_path, "rb") as zip_file:
         st.download_button(
-            label=f"📥 Download {len(df_selected)} reports ({output_format})",
+            label=f"📥 Download {total_files} reports ({output_format})",
             data=zip_file,
             file_name=f"{folder_name}.zip",
             mime="application/zip"
         )
 
+    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
 # Function to process a row and generate a PPTX or PDF file while preserving the original Excel formatting
-
 def process_row(presentation_path, row, excel_file_path, index, selected_columns, output_folder, output_format):
-    """Processes a row and generates a PPTX or PDF file while preserving Excel formatting."""
+    """Processes a row and generates a PPTX or PDF file while preserving the original Excel formatting."""    
+    # Load the PowerPoint presentation
     presentation = pptx.Presentation(presentation_path)
+
+    # Load the Excel file with openpyxl to read the formats
     wb = load_workbook(excel_file_path, data_only=True)
-    ws = wb.active
-    
+    ws = wb.active  # Read first sheet of the workbook
+
     for col_idx, col_name in enumerate(row.index):
-        column_letter = chr(65 + col_idx)
-        excel_cell = ws[f"{column_letter}{index + 2}"]
+        column_letter = chr(65 + col_idx)  # Convert column index to letter (A, B, C, ...)
+        excel_cell = ws[f"{column_letter}{index + 2}"]  # Index + 2 because Excel is 1-indexed
+
+        # Get the formatted value
         formatted_text = format_cell_value(excel_cell, wb, ws.title)
+        
+        # Replace the text in the presentation
         update_text_of_textbox(presentation, column_letter, formatted_text)
-    
-    file_name = "_".join(str(row[col]) for col in selected_columns if col in row)
+
+    # Generate the file name based on the selected columns
+    file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
+
+    # Save the PPTX file
     presentation.save(pptx_path)
-    
+
+    # Convert to PDF if necessary
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)
+        os.remove(pptx_path)  # Delete the PPTX after conversion
 
 
 # Function to format Excel cell values based on their type
@@ -141,20 +180,32 @@ def format_cell_value(cell, wb, sheet_name):
     if isinstance(value, (int, float)):
         ws = wb[sheet_name]
         cell_format = ws[cell.coordinate].number_format
+
+        # Clean strange characters from the format (e.g., \#,##0\ "€")
         cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  
+
+        # Identify the currency symbol if it exists
         currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
-        
+
         if currency_symbol:
+            # Round to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
             return f"{rounded_value:,.1f}".rstrip('0').rstrip('.') + f" {currency_symbol}"
         elif "%" in cleaned_format:
+            # Round percentage to 1 decimal, but never show .0
             percentage = round(value * 100, 1)
-            return f"{percentage:.1f}%" if not percentage.is_integer() else f"{int(percentage)}%"
+            if percentage.is_integer():  # If the percentage is an integer
+                return f"{int(percentage)}%"  # Do not show decimals
+            else:
+                return f"{percentage:.1f}%"  # Show decimals
         else:
+            # Round normal number to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
-            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')  # Round to 1 decimal
+
     elif isinstance(value, datetime):
-        return value.strftime("%d-%m-%Y")
+        return value.strftime("%d-%m-%Y")  # Date format
+
     return str(value)
 
 # ========= 💡 Styles to enhance the design =========
