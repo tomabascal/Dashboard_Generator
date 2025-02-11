@@ -43,12 +43,13 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-def update_text_of_textbox(presentation, column_letter, new_text, wb, sheet_name):
+def update_text_of_textbox(presentation, column_letter, new_text, wb, sheet_name, cell_coordinate):
     """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
     pattern = rf"\{{{column_letter}\}}"  # Expresión regular para encontrar "{A}", "{B}", etc.
 
     # Formatear el texto según el formato de Excel
-    formatted_text = format_cell_value(new_text, wb, sheet_name)
+    formatted_text = format_cell_value(
+        new_text, wb, sheet_name, cell_coordinate)
 
     for slide in presentation.slides:
         for shape in slide.shapes:
@@ -144,8 +145,10 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
+        # Adjust for Excel's 1-based index
+        cell_coordinate = f"{column_letter}{index + 2}"
         update_text_of_textbox(presentation, column_letter,
-                               row[col_name], wb, sheet_name)
+                               row[col_name], wb, sheet_name, cell_coordinate)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -162,15 +165,14 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
 
 
 # Function to format Excel cell values based on their type
-def format_cell_value(cell, wb, sheet_name):
+def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
     """Formats and rounds the cell value based on its type and format in Excel."""
-    if cell is None or cell.value is None:
+    if value is None:
         return ""
 
-    value = cell.value
-    if isinstance(value, (int, float)):
+    if isinstance(value, (int, float)) and cell_coordinate:
         ws = wb[sheet_name]
-        cell_format = ws[cell.coordinate].number_format
+        cell_format = ws[cell_coordinate].number_format
 
         # Clean strange characters from the format (e.g., \#,##0\ "€")
         cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)
@@ -193,7 +195,6 @@ def format_cell_value(cell, wb, sheet_name):
         else:
             # Round normal number to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
-            # Round to 1 decimal
             return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')
 
     elif isinstance(value, datetime):
