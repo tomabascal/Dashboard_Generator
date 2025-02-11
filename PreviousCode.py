@@ -253,8 +253,8 @@ st.markdown(f"**Selected: `{st.session_state.search_option}`**")
 start_row, end_row, store_ids = None, None, None
 
 if st.session_state.search_option == "rows":
-    start_row = st.number_input("Start Row", min_value=0, step=1)
-    end_row = st.number_input("End Row", min_value=0, step=1)
+    start_row = st.number_input("Start Row", min_value=1, step=1)
+    end_row = st.number_input("End Row", min_value=1, step=1)
 
 elif st.session_state.search_option == "store_id":
     store_ids = st.text_input("Enter Store IDs (comma-separated)")
