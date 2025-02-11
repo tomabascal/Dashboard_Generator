@@ -13,10 +13,12 @@ from datetime import datetime
 import re
 import subprocess
 
+
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
     try:
-        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf", pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
+        subprocess.run(["libreoffice", "--headless", "--convert-to", "pdf",
+                       pptx_path, "--outdir", os.path.dirname(pdf_path)], check=True)
     except Exception as e:
         print(f"Error converting {pptx_path} to PDF: {e}")
 
@@ -41,10 +43,12 @@ def get_filename_from_selection(row, selected_columns):
     return "_".join(file_name_parts)
 
 
-def update_text_of_textbox(presentation, column_letter, new_text):
+def update_text_of_textbox(presentation, column_letter, new_text, wb, sheet_name):
     """Busca y reemplaza texto dentro de las cajas de texto que tengan el formato {A}, {B}, etc."""
-    pattern = rf"\{{{
-        column_letter}\}}"  # Expresión regular para encontrar "{A}", "{B}", etc.
+    pattern = rf"\{{{column_letter}\}}"  # Expresión regular para encontrar "{A}", "{B}", etc.
+
+    # Formatear el texto según el formato de Excel
+    formatted_text = format_cell_value(new_text, wb, sheet_name)
 
     for slide in presentation.slides:
         for shape in slide.shapes:
@@ -54,14 +58,12 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                     for paragraph in text_frame.paragraphs:
                         for run in paragraph.runs:
                             run.text = re.sub(pattern, str(
-                                new_text), run.text)  # Reemplazo
-
-
+                                formatted_text), run.text)  # Reemplazo
 
 
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Genera reportes en formato PPTX o PDF en Streamlit Cloud con aviso de tiempos estimados."""
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"Presentations_{timestamp}"
     os.makedirs(folder_name, exist_ok=True)
@@ -80,6 +82,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     try:
         with pd.ExcelFile(excel_file_path) as xls:
             df1 = pd.read_excel(xls, sheet_name=0)
+            wb = xls.book  # Obtener el libro de Excel
+            # Obtener el nombre de la primera hoja
+            sheet_name = xls.sheet_names[0]
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -108,12 +113,14 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     start_time = time.time()
 
     for index, row in df_selected.iterrows():
-        process_row(ppt_template_path, row, df1, index, selected_columns, folder_name, output_format)
+        process_row(ppt_template_path, row, df1, index,
+                    selected_columns, folder_name, output_format, wb, sheet_name)
         current_file += 1
         progress = current_file / total_files
         progress_bar.progress(progress)
         elapsed_time = time.time() - start_time
-        progress_text.write(f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
+        progress_text.write(
+            f"📄 Generating {current_file}/{total_files} ({output_format}) - Elapsed time: {int(elapsed_time)}s")
 
     # Crear un ZIP con los archivos en el formato seleccionado
     zip_path = f"{folder_name}.zip"
@@ -127,17 +134,18 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
             mime="application/zip"
         )
 
-    progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
+    progress_text.write(
+        f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
     for col_idx, col_name in enumerate(row.index):
         column_letter = chr(65 + col_idx)
-        update_text_of_textbox(presentation, column_letter, row[col_name])
+        update_text_of_textbox(presentation, column_letter,
+                               row[col_name], wb, sheet_name)
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
@@ -149,24 +157,27 @@ def process_row(presentation_path, row, df1, index, selected_columns, output_fol
     if output_format == "PDF":
         pdf_path = os.path.join(output_folder, f"{file_name}.pdf")
         convert_pptx_to_pdf(pptx_path, pdf_path)
-        os.remove(pptx_path)  # Eliminar el PPTX original para solo guardar el PDF
+        # Eliminar el PPTX original para solo guardar el PDF
+        os.remove(pptx_path)
+
 
 # Function to format Excel cell values based on their type
 def format_cell_value(cell, wb, sheet_name):
     """Formats and rounds the cell value based on its type and format in Excel."""
     if cell is None or cell.value is None:
         return ""
-    
+
     value = cell.value
     if isinstance(value, (int, float)):
         ws = wb[sheet_name]
         cell_format = ws[cell.coordinate].number_format
 
         # Clean strange characters from the format (e.g., \#,##0\ "€")
-        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)  
+        cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)
 
         # Identify the currency symbol if it exists
-        currency_symbol = next((symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
+        currency_symbol = next(
+            (symbol for symbol in ["€", "$", "£"] if symbol in cleaned_format), "")
 
         if currency_symbol:
             # Round to 1 decimal and remove the .0 if it is an integer
@@ -182,12 +193,14 @@ def format_cell_value(cell, wb, sheet_name):
         else:
             # Round normal number to 1 decimal and remove the .0 if it is an integer
             rounded_value = round(value, 1)
-            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')  # Round to 1 decimal
+            # Round to 1 decimal
+            return f"{rounded_value:,.1f}".rstrip('0').rstrip('.')
 
     elif isinstance(value, datetime):
         return value.strftime("%d-%m-%Y")  # Date format
 
     return str(value)
+
 
 # ========= 💡 Estilos para mejorar el diseño =========
 st.markdown("""
@@ -211,8 +224,8 @@ output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
 # Mensaje de advertencia si el usuario elige PDF
 if output_format == "PDF":
-    st.warning("⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
-
+    st.warning(
+        "⚠️ Converting to PDF may take extra time. Large batches of presentations might take several minutes.")
 
 
 # ========= 📂 Upload de archivos con formato mejorado =========
@@ -286,6 +299,6 @@ if data_file is not None:
 if st.button("Process"):
     if ppt_template and data_file:
         process_files(ppt_template, data_file, st.session_state.search_option,
-                      start_row, end_row, store_ids, selected_columns, output_format) 
+                      start_row, end_row, store_ids, selected_columns, output_format)
     else:
         st.error("Please upload both files before processing.")
