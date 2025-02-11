@@ -93,7 +93,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     # Read the Excel file with pandas to filter data.
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row-2:end_row-1]
+        df_selected = df1.iloc[start_row:end_row]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
@@ -277,7 +277,7 @@ if data_file is not None:
 
     # Apply filters based on the selected option
     if st.session_state.search_option == "rows" and start_row is not None and end_row is not None:
-        df = df.iloc[start_row-2:end_row-1]  # Adjust for zero-based index
+        df = df.iloc[start_row:end_row]  # Adjust for zero-based index
 
     elif st.session_state.search_option == "store_id" and store_ids:
         store_ids_list = [int(id.strip()) for id in store_ids.split(',')]
