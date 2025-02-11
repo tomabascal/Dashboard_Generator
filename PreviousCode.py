@@ -44,7 +44,8 @@ def create_zip_of_presentations(folder_path):
 # Function to get the file name based on the selected columns
 def get_filename_from_selection(row, selected_columns):
     """Generate the file name based on the selected columns."""
-    file_name_parts = [str(row[col]) for col in selected_columns if col in row]
+    file_name_parts = [str(int(row[col])) if isinstance(row[col], float) and row[col].is_integer() else str(row[col])
+                       for col in selected_columns if col in row]
     return "_".join(file_name_parts)
 
 
@@ -284,7 +285,7 @@ elif st.session_state.search_option == "store_id":
 # ========= 📝 Column selection for file name =========
 if data_file is not None:
     # Read the first sheet of the Excel file
-    df = pd.read_excel(data_file, sheet_name=0)
+    df = pd.read_excel(data_file, sheet_name=0, dtype={'Store ID': str})
     column_names = df.columns.tolist()
 
     selected_columns = st.multiselect(
@@ -292,12 +293,6 @@ if data_file is not None:
         column_names,
         default=column_names[:1]
     )
-
-    def get_filename_from_selection(row, selected_columns):
-        """Generate the file name based on the selected columns."""
-        file_name_parts = [str(row[col])
-                           for col in selected_columns if col in row]
-        return "_".join(file_name_parts)
 
     st.write("🔹 Example file name:", get_filename_from_selection(
         df.iloc[0], selected_columns))
