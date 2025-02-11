@@ -227,7 +227,7 @@ st.markdown("""
 st.title("Shopfully Target By Store Reporting Tool")
 
 # Option to choose output format
-st.markdown("### **Select Output Format** \n*(`PPTX Format Recommended`)*")
+st.markdown("### **Select Output Format** \n**`PPTX Format Recommended`**")
 output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
 
 # Warning message if the user chooses PDF
