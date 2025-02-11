@@ -130,7 +130,7 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
     progress_text.write(f"✅ All reports have been generated in {output_format} format! Total time: {int(time.time() - start_time)}s")
 
 
-def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format, wb, sheet_name):
+def process_row(presentation_path, row, selected_columns, output_folder, output_format, wb, sheet_name):
     """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
