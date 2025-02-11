@@ -12,8 +12,6 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
-from openpyxl import load_workbook
-
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
     """Convierte un archivo PPTX a PDF en Linux usando LibreOffice (funciona en Streamlit Cloud)."""
@@ -133,24 +131,13 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
 
 
-def process_row(presentation_path, row, df1,excel_file_path, index, selected_columns, output_folder, output_format):
-    """Processes a row and generates a PPTX or PDF file while preserving the original Excel formatting."""    
-    # Load the PowerPoint presentation
+def process_row(presentation_path, row, df1, index, selected_columns, output_folder, output_format):
+    """Procesa una fila y genera un archivo PPTX o PDF en Streamlit Cloud."""
     presentation = pptx.Presentation(presentation_path)
 
-    # Load the Excel file with openpyxl to read the formats
-    wb = load_workbook(excel_file_path, data_only=True)
-    ws = wb.active  # Read first sheet of the workbook
-
     for col_idx, col_name in enumerate(row.index):
-        column_letter = chr(65 + col_idx)  # Convert column index to letter (A, B, C, ...)
-        excel_cell = ws[f"{column_letter}{index + 2}"]  # Index + 2 because Excel is 1-indexed
-
-        # Get the formatted value
-        formatted_text = format_cell_value(excel_cell, wb, ws.title)
-        
-        # Replace the text in the presentation
-        update_text_of_textbox(presentation, column_letter, formatted_text)
+        column_letter = chr(65 + col_idx)
+        update_text_of_textbox(presentation, column_letter, row[col_name])
 
     file_name = get_filename_from_selection(row, selected_columns)
     pptx_path = os.path.join(output_folder, f"{file_name}.pptx")
