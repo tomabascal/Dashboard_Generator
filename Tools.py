@@ -306,7 +306,7 @@ if data_file is not None:
         return "_".join(file_name_parts)
 
     st.write("🔹 Example file name:", get_filename_from_selection(
-        df.iloc[0], selected_columns))
+        df.iloc[1], selected_columns))
 
 # ========= 🚀 Process Button =========
 if st.button("Process"):
