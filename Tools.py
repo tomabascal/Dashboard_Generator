@@ -64,6 +64,7 @@ def update_text_of_textbox(presentation, column_letter, new_text):
                             run.text = re.sub(pattern, str(new_text), run.text)
 
 
+# Function to process the files and generate the reports                    
 def process_files(ppt_file, excel_file, search_option, start_row, end_row, store_ids, selected_columns, output_format):
     """Generates reports in PPTX or PDF format on Streamlit Cloud while preserving the Excel formatting."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -90,8 +91,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         st.error(f"Error reading Excel file: {e}")
         return
 
+    # Read the Excel file with pandas to filter data.
     if search_option == 'rows':
-        df_selected = df1.iloc[start_row:end_row + 1]
+        df_selected = df1.iloc[start_row-2:end_row-1]
     elif search_option == 'store_id':
         store_id_list = [store_id.strip() for store_id in store_ids.split(',')]
         df_selected = df1[df1.iloc[:, 0].astype(str).isin(store_id_list)]
