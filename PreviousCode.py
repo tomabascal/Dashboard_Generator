@@ -12,6 +12,7 @@ import shutil
 from datetime import datetime
 import re
 import subprocess
+from openpyxl import load_workbook
 
 
 def convert_pptx_to_pdf(pptx_path, pdf_path):
@@ -81,11 +82,9 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
         f.write(excel_file.getbuffer())
 
     try:
-        with pd.ExcelFile(excel_file_path) as xls:
-            df1 = pd.read_excel(xls, sheet_name=0)
-            wb = xls.book  # Obtener el libro de Excel
-            # Obtener el nombre de la primera hoja
-            sheet_name = xls.sheet_names[0]
+        wb = load_workbook(excel_file_path, data_only=True)
+        df1 = pd.read_excel(excel_file_path, sheet_name=0)
+        sheet_name = wb.sheetnames[0]  # Obtener el nombre de la primera hoja
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
         return
@@ -172,7 +171,8 @@ def format_cell_value(value, wb, sheet_name, cell_coordinate=None):
 
     if isinstance(value, (int, float)) and cell_coordinate:
         ws = wb[sheet_name]
-        cell_format = ws[cell_coordinate].number_format
+        cell = ws[cell_coordinate]
+        cell_format = cell.number_format
 
         # Clean strange characters from the format (e.g., \#,##0\ "€")
         cleaned_format = re.sub(r'[^\d.,%€$£]', '', cell_format)
