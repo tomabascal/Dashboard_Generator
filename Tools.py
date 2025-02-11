@@ -222,7 +222,7 @@ st.title("Shopfully Dashboard Generator")
 
 # Option to choose the output format
 st.markdown("### **Select Output Format**")
-output_format = st.radio("Choose the file format:", ["PPTX", "PDF"])
+output_format = st.radio("Choose the file format:", ["PPTX `(recommended)`", "PDF"])
 
 # Warning message if the user chooses PDF
 if output_format == "PDF":
