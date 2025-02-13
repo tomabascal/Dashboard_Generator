@@ -90,7 +90,8 @@ def process_files(ppt_file, excel_file, search_option, start_row, end_row, store
 
     try:
         wb = load_workbook(excel_file_path, data_only=True)
-        df1 = pd.read_excel(excel_file_path, sheet_name=0)
+        df1 = pd.read_excel(excel_file_path, sheet_name=0,
+                            dtype={'Store ID': str})
         sheet_name = wb.sheetnames[0]  # Get the name of the first sheet
     except PermissionError as e:
         st.error(f"Error reading Excel file: {e}")
