@@ -240,18 +240,13 @@ if output_format == "PDF":
 
 # ========= 📂 Upload files with improved format =========
 st.markdown(
-    "**Upload PPTX Template**  <br><i>(Text Box format that will be edited → {Column Letter} For Example: <code>{A}</code>)</i>",
-    unsafe_allow_html=True
-)
+    "**Upload PPTX Template**  \n*(Text Box format that will be edited -> {Column Letter} For Example: **`{A}`**)*")
 ppt_template = st.file_uploader("", type=["pptx"])
 
 st.write("")  # Spacing
 
 st.markdown(
-    """**Upload Excel m File**  <br>
-    <i>(Column A must be <span style="font-family: monospace;">Store ID</span>)</i>""",
-    unsafe_allow_html=True
-)
+    "**Upload Excel File**  \n*(Column A must be **`Store ID`**)*")
 data_file = st.file_uploader("", type=["xlsx"])
 
 
