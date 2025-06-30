@@ -248,7 +248,7 @@ ppt_template = st.file_uploader("", type=["pptx"])
 st.write("")  # Spacing
 
 st.markdown(
-    """**Upload Excel File**  <br>
+    """**Upload Excel m File**  <br>
     <i>(Column A must be <span style="font-family: monospace;">Store ID</span>)</i>""",
     unsafe_allow_html=True
 )
